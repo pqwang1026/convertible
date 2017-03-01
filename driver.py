@@ -1,0 +1,3 @@
+import OptimalStoppingSolver
+
+model = ConvertibleModel()
