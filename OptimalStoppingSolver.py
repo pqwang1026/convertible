@@ -23,14 +23,16 @@ class OptimalStoppingSolver(object):
         self.monte_carlo = monte_carlo       # number of monte carlo to compute the distribution of optimal stopping
 
         # set up the grid and the solution array
-        self.grid_bound = np.ceil(model.v0 * np.power((1.0 + model.nu + model.sigma), model.tau0))
+        self.grid_bound = np.ceil(model.v0 * np.power((1.0 + model.nu + model.sigma), model.mat))
         self.grid_disc = self.grid_bound / self.grid_size
         self.grid = np.linspace(start = 0.0, stop = self.grid_bound, num = self.grid_size + 1)
-        self.value_function = np.zeros(shape = (model.tau0 + 1, self.grid_size + 1))
-        self.optimal_strat = np.zeros(shape = (model.tau0 + 1, self.grid_size + 1), dtype = int)
-        self.conversion_boundary = np.zeros(shape = model.tau0 + 1)
-        self.stopping_distribution = np.zeros(shape = model.tau0 + 1)
-        self.prepare_model()
+        self.value_function = np.zeros(shape = (model.mat + 1, self.grid_size + 1))
+        self.optimal_strat = np.zeros(shape = (model.mat + 1, self.grid_size + 1), dtype = int)
+        self.conversion_boundary = np.zeros(shape = model.mat + 1)
+        self.stopping_distribution = np.zeros(shape = model.mat + 1)
+        self.process_cost = np.array([0])
+        self.process_liab = np.array([0])
+        self.call_payoff = 0
 
     def prepare_model(self):
         if self.model.tau0 == self.model.mat:
