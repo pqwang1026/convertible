@@ -1,6 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import logging
 
+root_logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO)
+fmt = logging.Formatter('{asctime} [{levelname}] <{name}> {message}', style='{')
+
+for handler in root_logger.handlers:
+    print(handler)
+    handler.setFormatter(fmt)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class ConvertibleModel(object):
     def __init__(self, v0, tau0, r, nu, c, k, sigma, delta, mu, mat):
