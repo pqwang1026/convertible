@@ -53,28 +53,44 @@ class MinorStoppingModel(StoppingModel):
         self.minor_stopping_dist = minor_stopping_dist
 
     def dynamic(self, t, x, noise):
-        return 0
+        return (1.0 + self.convertible_model.nu + self.convertible_model.sigma * noise) * x - \
+               self.convertible_model.c * (1 - self.minor_stopping_dist.cdf[t])
 
     def running_payoff(self, t, x):
-        return 0
+        if t == 0:
+            return np.power((1.0 + self.convertible_model.r), -t) * self.convertible_model.c
+        else:
+            return np.power((1.0 + self.convertible_model.r), -t) * self.convertible_model.c * (1.0 - self.major_stopping_dist.cdf[t-1])
 
     def terminal_payoff(self, t, x):
-        return 0
+        if t == 0:
+            return self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist[0]) * \
+                   (x - (1.0 - self.minor_stopping_dist[0]))
+        elif t == self.horizon:
+            return np.sum(self.major_stopping_dist.pdf * np.power((1.0 + self.convertible_model.r), -np.linspace(0, self.horizon - 1, self.horizon)))
 
+        else:
+            return np.sum(self.major_stopping_dist.pdf * np.power((1.0 + self.convertible_model.r), -np.linspace(0, t, t + 1))) + \
+                    self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist[t]) * \
+                    (x - (1.0 - self.minor_stopping_dist[t])) * (1.0 - self.major_stopping_dist.cdf[t-1])
 
 class MajorStoppingModel(StoppingModel):
     def __init__(self, convertible_model, minor_stopping_dist):
         StoppingModel.__init__(convertible_model.mat, convertible_model.R0)
         self.minor_stopping_dist = minor_stopping_dist
+        self.convertible_model = convertible_model
 
     def dynamic(self, t, x, noise):
-        return 0
+        return x + self.convertible_model.sigma0 * noise
 
     def running_payoff(self, t, x):
-        return 0
+        return np.power((1.0 + self.convertible_model.r), -t) * \
+               (self.convertible_model.c + (self.convertible_model.dividend - self.convertible_model.c) * self.minor_stopping_dist[t])
 
     def terminal_payoff(self, t, x):
-        return 0
+        return (np.power((1.0 + self.convertible_model.r), -t) - np.power((1.0 + self.convertible_model.r), -self.horizon)) * \
+               (x + (self.convertible_model.dividend * self.convertible_model.delta - x) * self.minor_stopping_dist[t]) / self.convertible_model.r \
+               + self.running_payoff(t,x)
 
 
 class OptimalStoppingSolver(object):
