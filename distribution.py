@@ -56,7 +56,7 @@ class DiscreteDistribution:
 
     def __init__(self, pdf):
         self.T = len(pdf) - 1
-        self.pdf = pdf
+        self.pdf = np.array(pdf)
         assert ((sum(pdf) - 1) < 1e-5)
 
     @property
