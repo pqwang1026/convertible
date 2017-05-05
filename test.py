@@ -1,14 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
-import distribution
+import distribution as dist
 
 root_logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 fmt = logging.Formatter('{asctime} [{levelname}] <{name}> {message}', style='{')
 
 for handler in root_logger.handlers:
-    print(handler)
     handler.setFormatter(fmt)
 
 logger = logging.getLogger(__name__)
@@ -32,21 +31,21 @@ class StoppingModel(object):
 
 class ConvertibleModel(object):
     def __init__(self, v0, r, nu, c, dividend, sigma, delta, mat, r0, sigma0):
-        self.v0 = v0        # initial capital
-        self.mat = mat      # bond's maturity
-        self.r = r          # discount rate
-        self.nu = nu        # firm's capital growth rate
-        self.c = c          # coupon rate
-        self.R0 = r0        # initial refinance interest rate
+        self.v0 = v0  # initial capital
+        self.mat = mat  # bond's maturity
+        self.r = r  # discount rate
+        self.nu = nu  # firm's capital growth rate
+        self.c = c  # coupon rate
+        self.R0 = r0  # initial refinance interest rate
         self.sigma = sigma  # precision of valuation
-        self.sigma0 = sigma0 # volatility of interest rate
+        self.sigma0 = sigma0  # volatility of interest rate
         self.delta = delta  # shares per unit of bond after conversion
-        self.dividend = dividend # dividend per share
+        self.dividend = dividend  # dividend per share
 
 
 class MinorStoppingModel(StoppingModel):
     def __init__(self, convertible_model, major_stopping_dist, minor_stopping_dist):
-        StoppingModel.__init__(convertible_model.mat + 1, convertible_model.v0)
+        super().__init__(convertible_model.mat + 1, convertible_model.v0)
         self.major_stopping_dist = major_stopping_dist
         self.minor_stopping_dist = minor_stopping_dist
 
@@ -58,7 +57,7 @@ class MinorStoppingModel(StoppingModel):
         if t == 0:
             return np.power((1.0 + self.convertible_model.r), -t) * self.convertible_model.c
         else:
-            return np.power((1.0 + self.convertible_model.r), -t) * self.convertible_model.c * (1.0 - self.major_stopping_dist.cdf[t-1])
+            return np.power((1.0 + self.convertible_model.r), -t) * self.convertible_model.c * (1.0 - self.major_stopping_dist.cdf[t - 1])
 
     def terminal_payoff(self, t, x):
         if t == 0:
@@ -69,12 +68,13 @@ class MinorStoppingModel(StoppingModel):
 
         else:
             return np.sum(self.major_stopping_dist.pdf * np.power((1.0 + self.convertible_model.r), -np.linspace(0, t, t + 1))) + \
-                    self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist[t]) * \
-                    (x - (1.0 - self.minor_stopping_dist[t])) * (1.0 - self.major_stopping_dist.cdf[t-1])
+                   self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist[t]) * \
+                   (x - (1.0 - self.minor_stopping_dist[t])) * (1.0 - self.major_stopping_dist.cdf[t - 1])
+
 
 class MajorStoppingModel(StoppingModel):
     def __init__(self, convertible_model, minor_stopping_dist):
-        StoppingModel.__init__(convertible_model.mat, convertible_model.R0)
+        super().__init__(convertible_model.mat, convertible_model.R0)
         self.minor_stopping_dist = minor_stopping_dist
         self.convertible_model = convertible_model
 
@@ -88,7 +88,7 @@ class MajorStoppingModel(StoppingModel):
     def terminal_payoff(self, t, x):
         return (np.power((1.0 + self.convertible_model.r), -t) - np.power((1.0 + self.convertible_model.r), -self.horizon)) * \
                (x + (self.convertible_model.dividend * self.convertible_model.delta - x) * self.minor_stopping_dist[t]) / self.convertible_model.r \
-               + self.running_payoff(t,x)
+               + self.running_payoff(t, x)
 
 
 class OptimalStoppingSolver(object):
@@ -100,7 +100,7 @@ class OptimalStoppingSolver(object):
         # set up the grid and the solution array
         self.grid_upper_bound = grid_upper_bound
         self.grid_lower_bound = grid_lower_bound
-        self.grid_size = self.grid_bound / self.num_grids
+        self.grid_size = (self.grid_upper_bound - self.grid_lower_bound) / self.num_grids
         self.grid = np.linspace(start=grid_upper_bound, stop=grid_lower_bound, num=self.num_grids + 1)
         self.value_function = np.zeros(shape=(stopping_model.horizon + 1, self.num_grids + 1))
         self.optimal_strat = np.zeros(shape=(stopping_model.horizon + 1, self.num_grids + 1), dtype=int)
@@ -143,15 +143,16 @@ class OptimalStoppingSolver(object):
         return self.optimal_strat[t, left_index] * self.optimal_strat[t, left_index + 1]
 
     def estimate_stopping_distribution(self):
-        self.stopping_distribution = np.zeros(shape=self.stopping_model.horizon + 1)
+        dist_temp = np.zeros(self.stopping_model.horizon + 1)
         for k in range(self.monte_carlo):
             t = 0
             v = self.stopping_model.initial_condition
-            while self.get_stopping_flag(v, t) == 0 and t < self.model.tau0:
+            while self.get_stopping_flag(v, t) == 0:
                 t = t + 1
-                v = v * (1.0 + self.model.nu + self.model.sigma * np.random.binomial(1, 0.5)) - self.process_cost[t]
-            self.stopping_distribution[t] = self.stopping_distribution[t] + 1.0
-        self.stopping_distribution = np.cumsum(self.stopping_distribution / self.monte_carlo)
+                noise = np.random.binomial(1, 0.5) * 2 - 1
+                v = self.stopping_model.dynamic(t, v, noise)
+            dist_temp[t] = dist_temp[t] + 1.0
+        self.stopping_distribution = dist.DiscreteDistribution(dist_temp / self.monte_carlo)
 
     def plot_conversion_boundary(self):
         time_line = np.linspace(0, self.model.tau0, self.model.tau0 + 1)
@@ -165,11 +166,7 @@ class OptimalStoppingSolver(object):
         plt.plot(self.grid, stop_payoff)
 
     def plot_stopping_distribution(self):
-        time_line = np.linspace(0, self.model.tau0, self.model.tau0 + 1)
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        ax.plot(time_line, self.stopping_distribution)
-        plt.show()
+        self.stopping_distribution.plot_cdf()
 
     def solve_full(self):
         """
@@ -180,19 +177,23 @@ class OptimalStoppingSolver(object):
         self.estimate_stopping_distribution()
 
 
-v0 = 3.0
-delta = 0.5
-nu = 0.04
-c = 0.03
-r = 0.02
-r0 = 0.04
-sigma0 = 0.001
-sigma = 0.05
-dividend = 0.04
-mat = 30
-bond_model = ConvertibleModel(v0, r, nu, c, dividend, sigma, delta, mat, r0, sigma0)
-major_stopping_dist = distribution.DiscreteDistribution(np.ones(mat + 1) / (mat + 1))
-minor_stopping_dist = distribution.DiscreteDistribution(np.ones(mat + 2) / (mat + 2))
-minor_model = MinorStoppingModel(bond_model, major_stopping_dist, minor_stopping_dist)
-major_model = MinorStoppingModel(bond_model, minor_stopping_dist)
-stopping_solver = OptimalStoppingSolver(major_model, 0.08, 0.0, 100, 1000)
+if __name__ == '__main__':
+    v0 = 3.0
+    delta = 0.5
+    nu = 0.04
+    c = 0.03
+    r = 0.02
+    r0 = 0.04
+    sigma0 = 0.001
+    sigma = 0.05
+    dividend = 0.04
+    mat = 30
+    bond_model = ConvertibleModel(v0, r, nu, c, dividend, sigma, delta, mat, r0, sigma0)
+    major_stopping_dist = dist.DiscreteDistribution(np.ones(mat + 1) / (mat + 1))
+    minor_stopping_dist = dist.DiscreteDistribution(np.ones(mat + 2) / (mat + 2))
+    minor_model = MinorStoppingModel(bond_model, major_stopping_dist, minor_stopping_dist)
+    major_model = MajorStoppingModel(bond_model, minor_stopping_dist)
+    stopping_solver = OptimalStoppingSolver(major_model, 0.08, 0.0, 100, 1000)
+
+    stopping_solver.solve_full()
+    stopping_solver.plot_stopping_distribution()

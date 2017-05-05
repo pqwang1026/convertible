@@ -63,6 +63,11 @@ class DiscreteDistribution:
     def cdf(self):
         return np.cumsum(self.pdf)
 
+    @classmethod
+    def get_uniform_dist(cls, T):
+        pdf = [1 / (T + 1) for i in range(0, T + 1)]
+        return DiscreteDistribution(pdf)
+
     def plot_cdf(self):
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -70,7 +75,11 @@ class DiscreteDistribution:
         ax.step(cdf.index, cdf.values, where='post')
         plt.show()
 
+    def __getitem__(self, x):
+        return self.pdf[x]
+
 
 if __name__ == '__main__':
     dist = DiscreteDistribution([0.1, 0.1, 0.2, 0.6])
+    print(dist[2])
     dist.plot_cdf()
