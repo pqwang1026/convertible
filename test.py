@@ -13,25 +13,61 @@ for handler in root_logger.handlers:
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
+class StoppingModel(object):
+    def __init__(self, horizon, initial_condition):
+        self.horizon = horizon
+        self.initial_condition = initial_condition
+
 class ConvertibleModel(object):
-    def __init__(self, v0, tau0, r, R, nu, c, dividend, k, sigma, delta, mu, mat):
+    def __init__(self, v0, tau0, r, R, nu, c, dividend, k, sigma, delta, mu, mat, R0, sigma0):
         self.v0 = v0        # initial capital
         self.mat = mat      # bond's maturity
         self.tau0 = tau0    # firm's call time
         self.r = r          # discount rate
         self.nu = nu        # firm's capital growth rate
         self.c = c          # coupon rate
-        self.R = R          # refinance interest rate
+        self.R0 = R0        # initial refinance interest rate
         self.k = k          # penalty rate for early call
         self.sigma = sigma  # precision of valuation
+        self.sigma0 = sigma0 # volatility of interest rate
         self.delta = delta  # shares per unit of bond after conversion
         self.dividend = dividend # dividend per share
         self.mu = mu        # mean field: how many bonds have been converted
 
+class MinorStoppingModel(StoppingModel):
+    def __abs__(self, convertible_model, major_stopping_dist, minor_stopping_dist):
+        StoppingModel.__init__(convertible_model.mat + 1, convertible_model.v0)
+        self.major_stopping_dist = major_stopping_dist
+        self.minor_stopping_dist = minor_stopping_dist
+
+    def dynamic(self, t, x, noise):
+        return 0
+
+    def running_payoff(self, t, x):
+        return 0
+
+    def terminal_payoff(self, x):
+        return 0
+
+class MajorStoppingModel(StoppingModel):
+    def __abs__(self, convertible_model, major_stopping_dist, minor_stopping_dist):
+        StoppingModel.__init__(convertible_model.mat, convertible_model.R0)
+        self.major_stopping_dist = major_stopping_dist
+        self.minor_stopping_dist = minor_stopping_dist
+
+    def dynamic(self, t, x, noise):
+        return 0
+
+    def running_payoff(self, t, x):
+        return 0
+
+    def terminal_payoff(self, x):
+        return 0
 
 class OptimalStoppingSolver(object):
-    def __init__(self, model, grid_size, monte_carlo):
-        self.model = model                  # model of convertible bond
+    def __init__(self, stopping_model, grid_size, monte_carlo):
+        self.stopping_model = stopping_model                  # model of convertible bond
         self.grid_size = grid_size          # number of discretization of space grid
         self.monte_carlo = monte_carlo       # number of monte carlo to compute the distribution of optimal stopping
 
@@ -39,13 +75,10 @@ class OptimalStoppingSolver(object):
         self.grid_bound = np.ceil(model.v0 * np.power((1.0 + model.nu + model.sigma), model.mat))
         self.grid_disc = self.grid_bound / self.grid_size
         self.grid = np.linspace(start = 0.0, stop = self.grid_bound, num = self.grid_size + 1)
-        self.value_function = np.zeros(shape = (model.mat + 1, self.grid_size + 1))
-        self.optimal_strat = np.zeros(shape = (model.mat + 1, self.grid_size + 1), dtype = int)
-        self.conversion_boundary = np.zeros(shape = model.mat + 1)
-        self.stopping_distribution = np.zeros(shape = model.mat + 1)
-        self.process_cost = np.array([0])
-        self.process_liab = np.array([0])
-        self.call_payoff = 0
+        self.value_function = np.zeros(shape = (stopping_model.horizon + 1, self.grid_size + 1))
+        self.optimal_strat = np.zeros(shape = (stopping_model.horizon + 1, self.grid_size + 1), dtype = int)
+        self.conversion_boundary = np.zeros(shape = stopping_model.horizon + 1)
+        self.stopping_distribution = np.zeros(shape = stopping_model.horizon + 1)
 
     def prepare_model(self):
         if self.model.tau0 == self.model.mat:
@@ -77,23 +110,26 @@ class OptimalStoppingSolver(object):
 
     # compute the value function at time t
     def update(self, t, n):
-        x_up = self.grid[n] * (1.0 + self.model.nu + self.model.sigma) - self.process_cost[t + 1]
-        x_down = x_up - 2.0 * self.grid[n] * self.model.sigma
-        go_on_payoff = self.model.c + \
+        x_up = self.stopping_model.dynamic(t, self.grid[n], 1)
+        x_down = self.stopping_model.dynamic(t, self.grid[n], -1)
+        continue_payoff = self.stopping_model.running_payoff(t, self.grid[n]) + \
                        0.5 * (self.get_value_function(t + 1, x_up) + self.get_value_function(t + 1, x_down)) / (1.0 + self.model.r)
-        conversion_payoff = self.get_conversion_payoff(t, n)
+        stop_payoff = self.stopping_model.terminal_payoff(t, self.grid[n])
         #print "Continue payoff = ", go_on_payoff, "Conversion payoff = ", conversion_payoff
-        self.value_function[t, n] = max(conversion_payoff, go_on_payoff)
-        if conversion_payoff >= go_on_payoff:
+        self.value_function[t, n] = max(continue_payoff, stop_payoff)
+        if stop_payoff >= continue_payoff:
             self.optimal_strat[t, n] = 1
 
     def solve_optimal_stopping(self):
-        for t in range(self.model.tau0 - 1, -1, -1):
+        for n in range(self.grid_size + 1):
+            self.value_function[self.stopping_model.horizon, n] = self.stopping_model.running_payoff(self.stopping_model.horizon, self.grid[n])
+            self.optimal_strat[self.stopping_model.horizon, n] = 1
+        for t in range(self.stopping_model.horizon - 1, -1, -1):
             for n in range(self.grid_size + 1):
                 self.update(t, n)
 
     def get_conversion_boundary(self):
-        for t in range(self.model.tau0, -1, -1):
+        for t in range(self.stopping_model.horizon, -1, -1):
             try:
                 self.conversion_boundary[t] = np.ndarray.min(np.where(self.optimal_strat[t,] == 1)[0])
             except ValueError:
@@ -104,18 +140,14 @@ class OptimalStoppingSolver(object):
         return self.optimal_strat[t, left_index] * self.optimal_strat[t, left_index + 1]
 
     def estimate_stopping_distribution(self):
-        self.stopping_distribution = np.zeros(shape = self.model.tau0 + 1)
+        self.stopping_distribution = np.zeros(shape = self.stopping_model.horizon + 1)
         for k in range(self.monte_carlo):
             t = 0
-            v = self.model.v0
+            v = self.stopping_model.initial_condition
             while self.get_stopping_flag(v, t) == 0 and t < self.model.tau0:
                 t = t + 1
                 v = v * (1.0 + self.model.nu + self.model.sigma * np.random.binomial(1, 0.5)) - self.process_cost[t]
-            if t < self.model.tau0:
-                self.stopping_distribution[t] = self.stopping_distribution[t] + 1.0
-            else:
-                if self.get_stopping_flag(v, t) == 1:
-                    self.stopping_distribution[t] = self.stopping_distribution[t] + 1.0
+            self.stopping_distribution[t] = self.stopping_distribution[t] + 1.0
         self.stopping_distribution = np.cumsum(self.stopping_distribution / self.monte_carlo)
 
     def plot_conversion_boundary(self):
@@ -123,11 +155,11 @@ class OptimalStoppingSolver(object):
         plt.plot(time_line, self.conversion_boundary * self.grid_disc)
 
     def plot_value_function(self, t):
-        conversion_payoff = np.zeros(shape = self.grid_size + 1)
+        stop_payoff = np.zeros(shape = self.grid_size + 1)
         for n in range(self.grid_size + 1):
-            conversion_payoff[n] = self.get_conversion_payoff(t, n)
+            stop_payoff[n] = self.stopping_model.terminal_payoff(t, self.grid[n])
         plt.plot(self.grid, self.value_function[t,])
-        plt.plot(self.grid, conversion_payoff)
+        plt.plot(self.grid, stop_payoff)
 
     def plot_stopping_distribution(self):
         time_line = np.linspace(0, self.model.tau0, self.model.tau0 + 1)
@@ -142,13 +174,6 @@ class OptimalStoppingSolver(object):
         self.solve_optimal_stopping()
         self.get_conversion_boundary()
         self.estimate_stopping_distribution()
-
-
-
-
-
-
-
 
 
 

@@ -13,7 +13,6 @@ for handler in root_logger.handlers:
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
 class MeanFieldGameSolver(object):
     def __init__(self, model, grid_size, monte_carlo, precision, max_iter):
         self.model = model
