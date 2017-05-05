@@ -48,6 +48,7 @@ class MinorStoppingModel(StoppingModel):
         super().__init__(convertible_model.mat + 1, convertible_model.v0)
         self.major_stopping_dist = major_stopping_dist
         self.minor_stopping_dist = minor_stopping_dist
+        self.convertible_model = convertible_model
 
     def dynamic(self, t, x, noise):
         return (1.0 + self.convertible_model.nu + self.convertible_model.sigma * noise) * x - \
@@ -193,7 +194,12 @@ if __name__ == '__main__':
     minor_stopping_dist = dist.DiscreteDistribution(np.ones(mat + 2) / (mat + 2))
     minor_model = MinorStoppingModel(bond_model, major_stopping_dist, minor_stopping_dist)
     major_model = MajorStoppingModel(bond_model, minor_stopping_dist)
-    stopping_solver = OptimalStoppingSolver(major_model, 0.08, 0.0, 100, 1000)
+
+    upper_bound = 10
+    lower_bound = 0
+    num_grids = 100
+    num_mc = 1000
+    stopping_solver = OptimalStoppingSolver(minor_model, upper_bound, lower_bound, num_grids, num_mc)
 
     stopping_solver.solve_full()
     stopping_solver.plot_stopping_distribution()
