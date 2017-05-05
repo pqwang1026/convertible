@@ -93,27 +93,6 @@ class OptimalStoppingSolver(object):
         self.conversion_boundary = np.zeros(shape=stopping_model.horizon + 1)
         self.stopping_distribution = np.zeros(shape=stopping_model.horizon + 1)
 
-    def prepare_model(self):
-        if self.model.tau0 == self.model.mat:
-            self.call_payoff = 1.0
-        else:
-            self.call_payoff = self.model.k
-
-        # set processes l and c
-        self.process_cost = np.zeros(shape=(self.model.tau0 + 1))
-        self.process_liab = np.zeros(shape=(self.model.tau0 + 1))
-        for t in range(self.model.tau0):
-            self.process_cost[t] = self.model.c * (1.0 - self.model.mu[t])
-            self.process_liab[t] = 1.0 - self.model.mu[t]
-        self.process_cost[self.model.tau0] = (1.0 - self.model.mu[self.model.tau0]) * self.call_payoff
-
-        # set terminal condition
-        for n in range(1 + self.num_grids):
-            conversion_payoff = self.get_conversion_payoff(self.model.tau0, n)
-            self.value_function[self.model.tau0, n] = max(conversion_payoff, self.call_payoff)
-            if conversion_payoff >= self.call_payoff:
-                self.optimal_strat[self.model.tau0, n] = 1
-
     def get_conversion_payoff(self, t, n):
         return self.model.delta * (1.0 - self.model.delta * self.model.mu[t]) * (self.grid[n] - self.process_liab[t])
 
@@ -185,7 +164,6 @@ class OptimalStoppingSolver(object):
         """
         Public interface
         """
-        self.prepare_model()
         self.solve_optimal_stopping()
         self.get_conversion_boundary()
         self.estimate_stopping_distribution()
