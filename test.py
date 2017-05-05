@@ -82,14 +82,20 @@ class MajorStoppingModel(StoppingModel):
     def dynamic(self, t, x, noise):
         return x + self.convertible_model.sigma0 * noise
 
-    def running_payoff(self, t, x):
+    def running_payoff_raw(self, t, x):
         return np.power((1.0 + self.convertible_model.r), -t) * \
                (self.convertible_model.c + (self.convertible_model.dividend - self.convertible_model.c) * self.minor_stopping_dist[t])
 
-    def terminal_payoff(self, t, x):
+    def terminal_payoff_raw(self, t, x):
         return (np.power((1.0 + self.convertible_model.r), -t) - np.power((1.0 + self.convertible_model.r), -self.horizon)) * \
                (x + (self.convertible_model.dividend * self.convertible_model.delta - x) * self.minor_stopping_dist[t]) / self.convertible_model.r \
                + self.running_payoff(t, x)
+
+    def running_payoff(self, t, x):
+        return -self.running_payoff_raw(t, x)
+
+    def terminal_payoff(self, t, x):
+        return -self.terminal_payoff_raw(t, x)
 
 
 class OptimalStoppingSolver(object):
@@ -107,6 +113,20 @@ class OptimalStoppingSolver(object):
         self.optimal_strat = np.zeros(shape=(stopping_model.horizon + 1, self.num_grids + 1), dtype=int)
         self.conversion_boundary = np.zeros(shape=stopping_model.horizon + 1)
         self.stopping_distribution = np.zeros(shape=stopping_model.horizon + 1)
+
+    def plot_stop_region(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for t in range(0, self.stopping_model.horizon + 1):
+            for j in range(0, self.num_grids + 1):
+                if self.optimal_strat[t, j] == 1:
+                    color = 'k'
+                    marker = 'D'
+                else:
+                    color = 'r'
+                    marker = 'o'
+                ax.plot([t], [self.grid[j]], color=color, marker=marker)
+        plt.show()
 
     # linear interpolation
     def get_value_function(self, t, x):
@@ -199,7 +219,9 @@ if __name__ == '__main__':
     lower_bound = 0
     num_grids = 100
     num_mc = 1000
-    stopping_solver = OptimalStoppingSolver(minor_model, upper_bound, lower_bound, num_grids, num_mc)
+    minor_stopping_solver = OptimalStoppingSolver(minor_model, upper_bound, lower_bound, num_grids, num_mc)
+    major_stopping_solver = OptimalStoppingSolver(major_model, upper_bound, lower_bound, num_grids, num_mc)
 
-    stopping_solver.solve_full()
-    stopping_solver.plot_stopping_distribution()
+    major_stopping_solver.solve_full()
+    major_stopping_solver.plot_stopping_distribution()
+    major_stopping_solver.plot_stop_region()

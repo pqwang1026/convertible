@@ -39,13 +39,13 @@ class MFSGSolver:
         self.major_model = MajorStoppingModel(self.bond_model, self.minor_stopping_dist)
 
         upper_bound = 0.8
-        lower_bound = 0
+        lower_bound = -0.8
         num_grids = 100
         major_solver = OptimalStoppingSolver(self.major_model, upper_bound, lower_bound, num_grids, self.num_mc)
 
-        upper_bound = 30
+        upper_bound = 50
         lower_bound = 0
-        num_grids = 100
+        num_grids = 300
         minor_solver = OptimalStoppingSolver(self.minor_model, upper_bound, lower_bound, num_grids, self.num_mc)
 
         major_solver.solve_full()
@@ -61,12 +61,14 @@ class MFSGSolver:
         major_cdf_prev = pd.Series(self.major_stopping_dist_prev.cdf)
         ax.step(major_cdf.index, major_cdf.data, where='post', color='b')
         ax.step(major_cdf_prev.index, major_cdf_prev.data, where='post', color='r', linestyle='--')
+        ax.set_title('major')
 
         ax = fig.add_subplot(2, 1, 2)
         minor_cdf = pd.Series(self.minor_stopping_dist.cdf)
         minor_cdf_prev = pd.Series(self.minor_stopping_dist_prev.cdf)
         ax.step(minor_cdf.index, minor_cdf.data, where='post', color='b')
         ax.step(minor_cdf_prev.index, minor_cdf_prev.data, where='post', color='r', linestyle='--')
+        ax.set_title('minor')
 
         plt.show()
 
@@ -81,14 +83,14 @@ class MFSGSolver:
 
 
 if __name__ == '__main__':
-    v0 = 3.0
-    delta = 0.5
-    nu = 0.04
+    v0 = 2.5
+    delta = 0.1
+    nu = 0.03
     c = 0.03
-    r = 0.02
+    r = 0.01
     r0 = 0.04
-    sigma0 = 0.001
-    sigma = 0.05
+    sigma = 0.1
+    sigma0 = 0.01
     dividend = 0.04
     mat = 30
     bond_model = ConvertibleModel(v0, r, nu, c, dividend, sigma, delta, mat, r0, sigma0)
