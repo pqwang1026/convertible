@@ -68,7 +68,7 @@ class MinorStoppingModel(StoppingModel):
             return np.sum(self.major_stopping_dist.pdf * np.power((1.0 + self.convertible_model.r), -np.linspace(0, self.horizon - 1, self.horizon)))
 
         else:
-            return np.sum(self.major_stopping_dist.pdf * np.power((1.0 + self.convertible_model.r), -np.linspace(0, t, t + 1))) + \
+            return np.sum(self.major_stopping_dist.pdf[0:t] * np.power((1.0 + self.convertible_model.r), -np.linspace(0, t - 1, t))) + \
                    self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist[t]) * \
                    (x - (1.0 - self.minor_stopping_dist[t])) * (1.0 - self.major_stopping_dist.cdf[t - 1])
 
@@ -140,7 +140,7 @@ class OptimalStoppingSolver(object):
                 self.conversion_boundary[t] = self.num_grids * 2
 
     def get_stopping_flag(self, x, t):
-        left_index = np.int(np.floor(x / self.grid_size))
+        left_index = np.int(np.floor((x - self.grid_lower_bound) / self.grid_size))
         return self.optimal_strat[t, left_index] * self.optimal_strat[t, left_index + 1]
 
     def estimate_stopping_distribution(self):
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     minor_model = MinorStoppingModel(bond_model, major_stopping_dist, minor_stopping_dist)
     major_model = MajorStoppingModel(bond_model, minor_stopping_dist)
 
-    upper_bound = 10
+    upper_bound = 20
     lower_bound = 0
     num_grids = 100
     num_mc = 1000
