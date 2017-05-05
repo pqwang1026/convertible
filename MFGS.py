@@ -1,6 +1,6 @@
-from OptimalStoppingSolver import ConvertibleModel, OptimalStoppingSolver
 import numpy as np
 import logging
+from test import MinorStoppingModel, MajorStoppingModel, OptimalStoppingSolver
 
 root_logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
@@ -12,6 +12,45 @@ for handler in root_logger.handlers:
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+class MFSGSolver:
+    def __init__(self, T):
+        self.minor_model = MinorStoppingModel()
+        self.major_model = MajorStoppingModel()
+
+        self.minor_stopping_dist = None
+        self.major_stopping_dist = None
+
+        self.minor_stopping_dist_prev = None
+        self.major_stopping_dist_prev = None
+
+        self.num_mc = 1e3  # number of monte carlo trials
+
+        self.T = T
+
+    def update(self):
+        self.minor_stopping_dist_prev = self.minor_stopping_dist
+        self.major_stopping_dist_prev = self.major_stopping_dist
+
+        self.minor_model = MinorStoppingModel(self.T, self.major_stopping_dist, self.minor_stopping_dist)
+        self.major_model = MajorStoppingModel(self.T, self.minor_stopping_dist)
+
+        major_solver = OptimalStoppingSolver(self.major_model, 1, self.num_mc)
+        minor_solver = OptimalStoppingSolver(self.minor_model, 1, self.num_mc)
+
+        major_solver.solve_full()
+        minor_solver.solve_full()
+
+        self.minor_stopping_dist = minor_solver.stopping_distribution
+        self.major_stopping_dist = major_solver.stopping_distribution
+
+    def plot_comparison_
+
+    @property
+    def logger(self):
+        return logger
+
 
 class MeanFieldGameSolver(object):
     def __init__(self, model, grid_size, monte_carlo, precision, max_iter):
@@ -57,7 +96,7 @@ class MeanFieldGameSolver(object):
 
     def solve_bond_holder_mfg(self, tau0):
         self.set_call_time(tau0)
-        self.set_stopping_distribution(np.linspace(0,1,tau0 + 1))
+        self.set_stopping_distribution(np.linspace(0, 1, tau0 + 1))
         self.num_iter = 0
         self.continue_flag = 1
         self.error = 10000.0
@@ -87,7 +126,7 @@ class MeanFieldGameSolver(object):
             self.solve_bond_holder_mfg(tau0)
             issuer_optimal_call = self.compute_optimal_call_issuer()
             if issuer_optimal_call == tau0:
-                self.mfg_solution.update({tau0:self.model.mu})
+                self.mfg_solution.update({tau0: self.model.mu})
                 self.logger.info('MFG Equilibrium Found @ Call = {0}'.format(tau0))
             else:
                 self.logger.info('MFG Equilibrium Not Found @ Call = {0}'.format(tau0))

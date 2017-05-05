@@ -47,7 +47,7 @@ class ConvertibleModel(object):
 
 
 class MinorStoppingModel(StoppingModel):
-    def __abs__(self, convertible_model, major_stopping_dist, minor_stopping_dist):
+    def __init__(self, convertible_model, major_stopping_dist, minor_stopping_dist):
         StoppingModel.__init__(convertible_model.mat + 1, convertible_model.v0)
         self.major_stopping_dist = major_stopping_dist
         self.minor_stopping_dist = minor_stopping_dist
@@ -63,9 +63,8 @@ class MinorStoppingModel(StoppingModel):
 
 
 class MajorStoppingModel(StoppingModel):
-    def __abs__(self, convertible_model, major_stopping_dist, minor_stopping_dist):
+    def __init__(self, convertible_model, minor_stopping_dist):
         StoppingModel.__init__(convertible_model.mat, convertible_model.R0)
-        self.major_stopping_dist = major_stopping_dist
         self.minor_stopping_dist = minor_stopping_dist
 
     def dynamic(self, t, x, noise):
