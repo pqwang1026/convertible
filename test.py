@@ -62,15 +62,15 @@ class MinorStoppingModel(StoppingModel):
 
     def terminal_payoff(self, t, x):
         if t == 0:
-            return self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist[0]) * \
-                   (x - (1.0 - self.minor_stopping_dist[0]))
+            return self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist.cdf[0]) * \
+                   (x - (1.0 - self.minor_stopping_dist.cdf[0]))
         elif t == self.horizon:
             return np.sum(self.major_stopping_dist.pdf * np.power((1.0 + self.convertible_model.r), -np.linspace(0, self.horizon - 1, self.horizon)))
 
         else:
             return np.sum(self.major_stopping_dist.pdf[0:t] * np.power((1.0 + self.convertible_model.r), -np.linspace(0, t - 1, t))) + \
-                   self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist[t]) * \
-                   (x - (1.0 - self.minor_stopping_dist[t])) * (1.0 - self.major_stopping_dist.cdf[t - 1])
+                   self.convertible_model.delta * (1.0 - self.convertible_model.delta * self.minor_stopping_dist.cdf[t]) * \
+                   (x - (1.0 - self.minor_stopping_dist.cdf[t])) * (1.0 - self.major_stopping_dist.cdf[t - 1])
 
 
 class MajorStoppingModel(StoppingModel):
@@ -84,11 +84,11 @@ class MajorStoppingModel(StoppingModel):
 
     def running_payoff_raw(self, t, x):
         return np.power((1.0 + self.convertible_model.r), -t) * \
-               (self.convertible_model.c + (self.convertible_model.dividend - self.convertible_model.c) * self.minor_stopping_dist[t])
+               (self.convertible_model.c + (self.convertible_model.dividend - self.convertible_model.c) * self.minor_stopping_dist.cdf[t])
 
     def terminal_payoff_raw(self, t, x):
         return (np.power((1.0 + self.convertible_model.r), -t) - np.power((1.0 + self.convertible_model.r), -self.horizon)) * \
-               (x + (self.convertible_model.dividend * self.convertible_model.delta - x) * self.minor_stopping_dist[t]) / self.convertible_model.r \
+               (x + (self.convertible_model.dividend * self.convertible_model.delta - x) * self.minor_stopping_dist.cdf[t]) / self.convertible_model.r \
                + self.running_payoff(t, x)
 
     def running_payoff(self, t, x):
