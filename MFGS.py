@@ -17,9 +17,12 @@ logger.setLevel(logging.INFO)
 
 
 class MFSGSolver:
-    def __init__(self, bond_model, major_stopping_dist=None, minor_stopping_dist=None):
+    def __init__(self, bond_model, major_stopping_dist, minor_stopping_dist, num_mc = 1000, num_grids = 200):
         self.minor_model = None
         self.major_model = None
+
+        self.minor_solver = None
+        self.major_solver = None
 
         self.minor_stopping_dist = minor_stopping_dist
         self.major_stopping_dist = major_stopping_dist
@@ -27,7 +30,9 @@ class MFSGSolver:
         self.minor_stopping_dist_prev = minor_stopping_dist
         self.major_stopping_dist_prev = major_stopping_dist
 
-        self.num_mc = int(1e3)  # number of monte carlo trials
+        self.num_mc = num_mc  # number of monte carlo trials
+
+        self.num_grids = num_grids  # number of grids for optimal stopping
 
         self.bond_model = bond_model
 
@@ -35,24 +40,17 @@ class MFSGSolver:
         self.minor_stopping_dist_prev = self.minor_stopping_dist
         self.major_stopping_dist_prev = self.major_stopping_dist
 
-        self.minor_model = MinorStoppingModel(self.bond_model, self.major_stopping_dist, self.minor_stopping_dist, )
+        self.minor_model = MinorStoppingModel(self.bond_model, self.major_stopping_dist, self.minor_stopping_dist)
         self.major_model = MajorStoppingModel(self.bond_model, self.minor_stopping_dist)
 
-        upper_bound = 0.8
-        lower_bound = -0.8
-        num_grids = 100
-        major_solver = OptimalStoppingSolver(self.major_model, upper_bound, lower_bound, num_grids, self.num_mc)
+        self.major_solver = OptimalStoppingSolver(self.major_model, self.num_grids, self.num_mc)
+        self.minor_solver = OptimalStoppingSolver(self.minor_model, num_grids, self.num_mc)
 
-        upper_bound = 50
-        lower_bound = 0
-        num_grids = 300
-        minor_solver = OptimalStoppingSolver(self.minor_model, upper_bound, lower_bound, num_grids, self.num_mc)
+        self.major_solver.solve_full()
+        self.minor_solver.solve_full()
 
-        major_solver.solve_full()
-        minor_solver.solve_full()
-
-        self.minor_stopping_dist = minor_solver.stopping_distribution
-        self.major_stopping_dist = major_solver.stopping_distribution
+        self.minor_stopping_dist = self.minor_solver.stopping_distribution
+        self.major_stopping_dist = self.major_solver.stopping_distribution
 
     def plot_incremental_comparison(self):
         fig = plt.figure()
