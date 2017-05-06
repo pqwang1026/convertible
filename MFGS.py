@@ -44,7 +44,7 @@ class MFSGSolver:
         self.major_model = MajorStoppingModel(self.bond_model, self.minor_stopping_dist)
 
         self.major_solver = OptimalStoppingSolver(self.major_model, self.num_grids, self.num_mc)
-        self.minor_solver = OptimalStoppingSolver(self.minor_model, num_grids, self.num_mc)
+        self.minor_solver = OptimalStoppingSolver(self.minor_model, self.num_grids, self.num_mc)
 
         self.major_solver.solve_full()
         self.minor_solver.solve_full()
@@ -70,15 +70,24 @@ class MFSGSolver:
 
         plt.show()
 
+    def get_convergence_error(self):
+        major_error = np.linalg.norm(self.major_stopping_dist.pdf - self.major_stopping_dist_prev.pdf)
+        minor_error = np.linalg.norm(self.minor_stopping_dist.pdf - self.minor_stopping_dist_prev.pdf)
+        return major_error + minor_error
+
     @property
     def logger(self):
         return logger
 
     def solve(self):
-        while True:
+        error = 10000.0
+        num_iterations = 0
+        while error > 0.05 or num_iterations < 21:
             self.update()
-            self.plot_incremental_comparison()
-
+            #self.plot_incremental_comparison()
+            error = self.get_convergence_error()
+            self.logger.info('Error = {0}'.format(error))
+            ++num_iterations
 
 if __name__ == '__main__':
     v0 = 2.5
