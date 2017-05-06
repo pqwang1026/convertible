@@ -17,7 +17,8 @@ logger.setLevel(logging.INFO)
 
 
 class MFSGSolver:
-    def __init__(self, bond_model, major_stopping_dist, minor_stopping_dist, num_mc = 1000, num_grids = 200):
+    def __init__(self, bond_model, major_stopping_dist, minor_stopping_dist, num_mc = 5000, num_grids = 400,
+                 num_max_iter = 25, precision = 0.05):
         self.minor_model = None
         self.major_model = None
 
@@ -36,6 +37,12 @@ class MFSGSolver:
 
         self.bond_model = bond_model
 
+        self.num_max_iter = num_max_iter
+        self.precision = precision
+        self.error = 10000.00
+        self.num_iter = 0
+        self.continue_flag = 1
+
     def update(self):
         self.minor_stopping_dist_prev = self.minor_stopping_dist
         self.major_stopping_dist_prev = self.major_stopping_dist
@@ -51,6 +58,20 @@ class MFSGSolver:
 
         self.minor_stopping_dist = self.minor_solver.stopping_distribution
         self.major_stopping_dist = self.major_solver.stopping_distribution
+
+        self.num_iter = self.num_iter + 1
+        self.error = np.linalg.norm(self.major_stopping_dist.pdf - self.major_stopping_dist_prev.pdf) + \
+                     np.linalg.norm(self.minor_stopping_dist.pdf - self.minor_stopping_dist_prev.pdf)
+
+        self.logger.info('Error = {0}'.format(self.error))
+
+        if self.num_iter == self.num_max_iter or self.error <= self.precision:
+            self.continue_flag = 0
+            if self.num_iter == self.num_max_iter:
+                self.logger.info('Warning: Maximum iteration reached...Give up...')
+            if self.error <= self.precision:
+                self.logger.info('Converge!')
+                self.plot_incremental_comparison()
 
     def plot_incremental_comparison(self):
         fig = plt.figure()
@@ -70,6 +91,10 @@ class MFSGSolver:
 
         plt.show()
 
+    def plot_equilibrium_strats(self):
+        self.minor_solver.plot_stop_region()
+        self.major_solver.plot_stop_region()
+
     def get_convergence_error(self):
         major_error = np.linalg.norm(self.major_stopping_dist.pdf - self.major_stopping_dist_prev.pdf)
         minor_error = np.linalg.norm(self.minor_stopping_dist.pdf - self.minor_stopping_dist_prev.pdf)
@@ -82,23 +107,19 @@ class MFSGSolver:
     def solve(self):
         error = 10000.0
         num_iterations = 0
-        while error > 0.05 or num_iterations < 21:
+        while self.continue_flag == 1:
             self.update()
-            #self.plot_incremental_comparison()
-            error = self.get_convergence_error()
-            self.logger.info('Error = {0}'.format(error))
-            ++num_iterations
 
 if __name__ == '__main__':
-    v0 = 2.5
+    v0 = 6.0
     delta = 0.1
-    nu = 0.03
+    nu = 0.02
     c = 0.03
     r = 0.01
     r0 = 0.04
     sigma = 0.1
     sigma0 = 0.01
-    dividend = 0.04
+    dividend = 0.03
     mat = 30
     bond_model = ConvertibleModel(v0, r, nu, c, dividend, sigma, delta, mat, r0, sigma0)
 
@@ -107,3 +128,5 @@ if __name__ == '__main__':
 
     solver = MFSGSolver(bond_model=bond_model, major_stopping_dist=major_stopping_dist, minor_stopping_dist=minor_stopping_dist)
     solver.solve()
+    #solver.plot_equilibrium_strats()
+
