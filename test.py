@@ -51,8 +51,8 @@ class MinorStoppingModel(StoppingModel):
         self.convertible_model = convertible_model
 
     def dynamic(self, t, x, noise):
-        return (1.0 + self.convertible_model.nu + self.convertible_model.sigma * noise) * x - \
-               self.convertible_model.c * (1.0 - self.minor_stopping_dist.cdf[t])
+        return (1.0 + self.convertible_model.nu + self.convertible_model.sigma * noise) * x - self.convertible_model.c -\
+               (self.convertible_model.dividend * self.convertible_model.delta - self.convertible_model.c) * self.minor_stopping_dist.cdf[t]
 
     def running_payoff(self, t, x):
         if t == 0:
