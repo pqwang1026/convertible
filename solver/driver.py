@@ -1,6 +1,7 @@
-from OptimalStoppingSolver import ConvertibleModel, OptimalStoppingSolver
-from MFGS import MeanFieldGameSolver
 import numpy as np
+from solver.optimal_stopping_solver import ConvertibleModel
+
+from solver.mfsg import MeanFieldGameSolver
 
 v0 = 3.0
 delta = 0.5

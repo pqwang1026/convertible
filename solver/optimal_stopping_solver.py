@@ -2,45 +2,37 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 
-root_logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO)
-fmt = logging.Formatter('{asctime} [{levelname}] <{name}> {message}', style='{')
-
-for handler in root_logger.handlers:
-    print(handler)
-    handler.setFormatter(fmt)
-
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+
 
 class ConvertibleModel(object):
     def __init__(self, v0, tau0, r, nu, c, k, sigma, delta, mu, mat):
-        self.v0 = v0        # initial capital
-        self.mat = mat      # bond's maturity
-        self.tau0 = tau0    # firm's call time
-        self.r = r          # discount rate
-        self.nu = nu        # firm's capital growth rate
-        self.c = c          # coupon rate
-        self.k = k          # penalty rate for early call
+        self.v0 = v0  # initial capital
+        self.mat = mat  # bond's maturity
+        self.tau0 = tau0  # firm's call time
+        self.r = r  # discount rate
+        self.nu = nu  # firm's capital growth rate
+        self.c = c  # coupon rate
+        self.k = k  # penalty rate for early call
         self.sigma = sigma  # precision of valuation
         self.delta = delta  # shares per unit of bond after conversion
-        self.mu = mu        # mean field: how many bonds have been converted
+        self.mu = mu  # mean field: how many bonds have been converted
 
 
 class OptimalStoppingSolver(object):
     def __init__(self, model, grid_size, monte_carlo):
-        self.model = model                  # model of convertible bond
-        self.grid_size = grid_size          # number of discretization of space grid
-        self.monte_carlo = monte_carlo       # number of monte carlo to compute the distribution of optimal stopping
+        self.model = model  # model of convertible bond
+        self.grid_size = grid_size  # number of discretization of space grid
+        self.monte_carlo = monte_carlo  # number of monte carlo to compute the distribution of optimal stopping
 
         # set up the grid and the solution array
         self.grid_bound = np.ceil(model.v0 * np.power((1.0 + model.nu + model.sigma), model.mat))
         self.grid_disc = self.grid_bound / self.grid_size
-        self.grid = np.linspace(start = 0.0, stop = self.grid_bound, num = self.grid_size + 1)
-        self.value_function = np.zeros(shape = (model.mat + 1, self.grid_size + 1))
-        self.optimal_strat = np.zeros(shape = (model.mat + 1, self.grid_size + 1), dtype = int)
-        self.conversion_boundary = np.zeros(shape = model.mat + 1)
-        self.stopping_distribution = np.zeros(shape = model.mat + 1)
+        self.grid = np.linspace(start=0.0, stop=self.grid_bound, num=self.grid_size + 1)
+        self.value_function = np.zeros(shape=(model.mat + 1, self.grid_size + 1))
+        self.optimal_strat = np.zeros(shape=(model.mat + 1, self.grid_size + 1), dtype=int)
+        self.conversion_boundary = np.zeros(shape=model.mat + 1)
+        self.stopping_distribution = np.zeros(shape=model.mat + 1)
         self.process_cost = np.array([0])
         self.process_liab = np.array([0])
         self.call_payoff = 0
@@ -52,8 +44,8 @@ class OptimalStoppingSolver(object):
             self.call_payoff = self.model.k
 
         # set processes l and c
-        self.process_cost = np.zeros(shape = (self.model.tau0 + 1))
-        self.process_liab = np.zeros(shape = (self.model.tau0 + 1))
+        self.process_cost = np.zeros(shape=(self.model.tau0 + 1))
+        self.process_liab = np.zeros(shape=(self.model.tau0 + 1))
         for t in range(self.model.tau0):
             self.process_cost[t] = self.model.c * (1.0 - self.model.mu[t])
             self.process_liab[t] = 1.0 - self.model.mu[t]
@@ -80,7 +72,7 @@ class OptimalStoppingSolver(object):
         go_on_payoff = self.model.c + \
                        0.5 * (self.get_value_function(t + 1, x_up) + self.get_value_function(t + 1, x_down)) / (1.0 + self.model.r)
         conversion_payoff = self.get_conversion_payoff(t, n)
-        #print "Continue payoff = ", go_on_payoff, "Conversion payoff = ", conversion_payoff
+        # print "Continue payoff = ", go_on_payoff, "Conversion payoff = ", conversion_payoff
         self.value_function[t, n] = max(conversion_payoff, go_on_payoff)
         if conversion_payoff >= go_on_payoff:
             self.optimal_strat[t, n] = 1
@@ -98,11 +90,11 @@ class OptimalStoppingSolver(object):
                 self.conversion_boundary[t] = self.grid_size * 2
 
     def get_stopping_flag(self, x, t):
-        left_index = np.int(np.floor(x/self.grid_disc))
+        left_index = np.int(np.floor(x / self.grid_disc))
         return self.optimal_strat[t, left_index] * self.optimal_strat[t, left_index + 1]
 
     def estimate_stopping_distribution(self):
-        self.stopping_distribution = np.zeros(shape = self.model.tau0 + 1)
+        self.stopping_distribution = np.zeros(shape=self.model.tau0 + 1)
         for k in range(self.monte_carlo):
             t = 0
             v = self.model.v0
@@ -121,7 +113,7 @@ class OptimalStoppingSolver(object):
         plt.plot(time_line, self.conversion_boundary * self.grid_disc)
 
     def plot_value_function(self, t):
-        conversion_payoff = np.zeros(shape = self.grid_size + 1)
+        conversion_payoff = np.zeros(shape=self.grid_size + 1)
         for n in range(self.grid_size + 1):
             conversion_payoff[n] = self.get_conversion_payoff(t, n)
         plt.plot(self.grid, self.value_function[t,])
@@ -140,16 +132,3 @@ class OptimalStoppingSolver(object):
         self.solve_optimal_stopping()
         self.get_conversion_boundary()
         self.estimate_stopping_distribution()
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -44,13 +44,11 @@ class Timer:
 
     def __exit__(self, *args):
         self.stop()
-        if self.logger is not None:
-            self.logger.info('{} elapsed: {:.6f} secs'.format(self._name, round(self._elapsed, 6)))
 
 
 def timed(function):
     def wrapper(*args, **kwargs):
-        with Timer(function.__name__, logger=logger):
+        with Timer('function [{0}]'.format(function.__name__), logger=logger):
             res = function(*args, **kwargs)
         return res
 
@@ -58,9 +56,4 @@ def timed(function):
 
 
 if __name__ == '__main__':
-    @timed
-    def test(x):
-        return x + 1
-
-    test(3)
-
+    pass

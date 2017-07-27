@@ -1,17 +1,11 @@
-from OptimalStoppingSolver import ConvertibleModel, OptimalStoppingSolver
-import numpy as np
 import logging
 
-root_logger = logging.getLogger()
-logging.basicConfig(level=logging.INFO)
-fmt = logging.Formatter('{asctime} [{levelname}] <{name}> {message}', style='{')
+import numpy as np
 
-for handler in root_logger.handlers:
-    print(handler)
-    handler.setFormatter(fmt)
+import utils.perf as perf
+from solver.optimal_stopping_solver import OptimalStoppingSolver
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 class MeanFieldGameSolver(object):
@@ -40,6 +34,7 @@ class MeanFieldGameSolver(object):
     def get_stopping_distribution(self):
         return self.stopping_solver.stopping_distribution
 
+    @perf.timed
     def update(self):
         self.last_dist = self.stopping_solver.model.mu
         self.stopping_solver.solve_full()
@@ -58,7 +53,7 @@ class MeanFieldGameSolver(object):
 
     def solve_bond_holder_mfg(self, tau0):
         self.set_call_time(tau0)
-        self.set_stopping_distribution(np.linspace(0,1,tau0 + 1))
+        self.set_stopping_distribution(np.linspace(0, 1, tau0 + 1))
         self.num_iter = 0
         self.continue_flag = 1
         self.error = 10000.0
@@ -88,7 +83,7 @@ class MeanFieldGameSolver(object):
             self.solve_bond_holder_mfg(tau0)
             issuer_optimal_call = self.compute_optimal_call_issuer()
             if issuer_optimal_call == tau0:
-                self.mfg_solution.update({tau0:self.model.mu})
+                self.mfg_solution.update({tau0: self.model.mu})
                 self.logger.info('MFG Equilibrium Found @ Call = {0}'.format(tau0))
             else:
                 self.logger.info('MFG Equilibrium Not Found @ Call = {0}'.format(tau0))

@@ -13,6 +13,3 @@ for handler in handlers:
     logger.addHandler(stream_handler)
 
 logger.setLevel(logging.INFO)
-
-if __name__ == '__main__':
-    logger.info('This is a test.')
