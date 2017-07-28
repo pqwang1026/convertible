@@ -15,7 +15,7 @@ class ConvertibleModel(object):
         self.c = c  # coupon rate
         self.k = k  # penalty rate for early call
         self.sigma = sigma  # precision of valuation
-        self.delta = delta  # shares per unit of bond after conversion
+        self.delta = delta  # shares per unit of bond after conversion, i.e. conversion ratio
         self.mu = mu  # mean field: how many bonds have been converted
 
 
@@ -69,8 +69,7 @@ class OptimalStoppingSolver(object):
     def update(self, t, n):
         x_up = self.grid[n] * (1.0 + self.model.nu + self.model.sigma) - self.process_cost[t + 1]
         x_down = x_up - 2.0 * self.grid[n] * self.model.sigma
-        go_on_payoff = self.model.c + \
-                       0.5 * (self.get_value_function(t + 1, x_up) + self.get_value_function(t + 1, x_down)) / (1.0 + self.model.r)
+        go_on_payoff = self.model.c + 0.5 * (self.get_value_function(t + 1, x_up) + self.get_value_function(t + 1, x_down)) / (1.0 + self.model.r)
         conversion_payoff = self.get_conversion_payoff(t, n)
         # print "Continue payoff = ", go_on_payoff, "Conversion payoff = ", conversion_payoff
         self.value_function[t, n] = max(conversion_payoff, go_on_payoff)

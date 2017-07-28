@@ -1,0 +1,63 @@
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+class EmpiricalDistribution:
+    def __init__(self, data):
+        self.data = data
+        self.data.sort()
+        self.data_size = len(data)
+
+    def distplot(self, **kwargs):
+        sns.distplot(self.data, **kwargs)
+
+    def get_sample_pdf_series(self):
+        counter = dict()
+        for datum in self.data:
+            if datum not in counter:
+                counter[datum] = 1
+            else:
+                counter[datum] += 1
+
+        data_uniq = list(set(self.data))
+        data_uniq.sort()
+        counter_list = []
+        for datum in data_uniq:
+            counter_list.append(counter[datum])
+
+        return pd.Series(data=counter_list, index=data_uniq) / len(self.data)
+
+    def get_sample_cdf_series(self):
+        pdf = self.get_sample_pdf_series()
+        return pdf.cumsum()
+
+    def get_sample_cdf_fn(self):
+        cdf_series = self.get_sample_cdf_series()
+
+        def cdf(x):
+            return np.interp(x, cdf_series.index, cdf_series.data)
+
+        return cdf
+
+    def plot_cdf(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cdf = self.get_sample_cdf_series()
+        ax.step(cdf.index, cdf.data, where='post')
+        plt.show()
+
+
+if __name__ == '__main__':
+    obj = EmpiricalDistribution([1, 2, 12, 23])
+    print(obj.get_sample_pdf_series())
+    print(obj.get_sample_cdf_series())
+
+    cdf = obj.get_sample_cdf_fn()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.step(obj.get_sample_cdf_series().index, obj.get_sample_cdf_series().data, where='post')
+
+    plt.show()
