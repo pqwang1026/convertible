@@ -49,6 +49,36 @@ class EmpiricalDistribution:
         plt.show()
 
 
+class DiscreteDistribution:
+    """
+    This is a distribution object that's supported on {0, 1, ..., T}.
+    """
+
+    def __init__(self, pdf):
+        self.T = len(pdf) - 1
+        self.pdf = np.array(pdf)
+        assert ((sum(pdf) - 1) < 1e-5)
+
+    @property
+    def cdf(self):
+        return np.cumsum(self.pdf)
+
+    @classmethod
+    def get_uniform_dist(cls, T):
+        pdf = [1 / (T + 1) for i in range(0, T + 1)]
+        return DiscreteDistribution(pdf)
+
+    def plot_cdf(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cdf = pd.Series(self.cdf)
+        ax.step(cdf.index, cdf.values, where='post')
+        plt.show()
+
+    def __getitem__(self, x):
+        return self.pdf[x]
+
+
 if __name__ == '__main__':
     obj = EmpiricalDistribution([1, 2, 12, 23])
     print(obj.get_sample_pdf_series())

@@ -68,7 +68,7 @@ class MinorStoppingModel:
     @property
     def running_reward(self):
         def fn(t, x):
-            return np.power((1 + self.r), -t) * self.c * (t <= (self.tau_0 - 1))
+            return np.power((1 + self.r), -t) * self.c * (t <= (self.tau_0))
 
         return fn
 
