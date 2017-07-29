@@ -32,13 +32,13 @@ if __name__ == '__main__':
     T = 1
     sigma = 0.2
     div_times = [0.3, 0.6, 0.9]
-    div_amount = 1
+    div_amount = 10
 
-    config.time_num_grids = 40
+    config.time_num_grids = 50
     config.time_upper_bound = T
     config.time_lower_bound = 0
 
-    config.state_num_grids = 60
+    config.state_num_grids = 50
     config.state_upper_bound = 200
     config.state_lower_bound = 50
 
@@ -53,8 +53,8 @@ if __name__ == '__main__':
 
 
     model.driver = driver
-    model.terminal_cost = put_payoff_getter(100, 0.001)
-    # model.terminal_cost = call_payoff_getter(100, 0.001)
+    model.terminal_reward = put_payoff_getter(100, 0.001)
+    # model.terminal_reward = call_payoff_getter(100, 0.001)
 
     solver = DiscreteStoppingSolver(model, config)
 

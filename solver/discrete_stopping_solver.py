@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 class DiscreteStoppingModel:
     def __init__(self):
         self.driver = None
-        self.terminal_cost = None
-        self.running_cost = None
+        self.terminal_reward = None
+        self.running_reward = lambda t, x: 0
 
 
 class DiscreteStoppingConfig:
@@ -27,9 +27,9 @@ class DiscreteStoppingConfig:
 
 class DiscreteStoppingSolver:
     def __init__(self, model, config):
-        self.driver = model.driver  # driver is a function of (i,x,noise)
-        self.running_cost = model.running_cost  # running cost is a function of (i,x)
-        self.terminal_cost = model.terminal_cost  # terminal cost is a function of (i,x)
+        self.driver = model.driver  # driver is a function of (t,x,noise)
+        self.running_reward = model.running_reward  # running cost is a function of (t,x)
+        self.terminal_reward = model.terminal_reward  # terminal cost is a function of (t,x)
 
         self.time_num_grids = config.time_num_grids
         self.time_lower_bound = config.time_lower_bound
@@ -76,7 +76,7 @@ class DiscreteStoppingSolver:
 
     def solve(self):
         for j in range(0, self.M + 1):
-            self.value[self.N][j] = self.terminal_cost(self.time_from_iloc(self.N), self.state_from_iloc(j))
+            self.value[self.N][j] = self.terminal_reward(self.time_from_iloc(self.N), self.state_from_iloc(j))
             self.stop_flag[self.N][j] = False
 
         for i in reversed(range(0, self.N)):
@@ -85,10 +85,14 @@ class DiscreteStoppingSolver:
                 x = self.state_from_iloc(j)
                 x_up = self.driver(t, x, 1)
                 x_dn = self.driver(t, x, -1)
+
                 value_up = np.interp(x_up, [self.state_from_iloc(k) for k in range(0, self.M + 1)], self.value[i + 1], )
                 value_dn = np.interp(x_dn, [self.state_from_iloc(k) for k in range(0, self.M + 1)], self.value[i + 1], )
-                value_stop = self.terminal_cost(t, x)
-                value_non_stop = (value_up + value_dn) / 2
+                value_running = self.running_reward(t, x)
+
+                value_stop = self.terminal_reward(t, x)
+                value_non_stop = (value_up + value_dn) / 2 + value_running
+
                 self.value[i][j] = max(value_stop, value_non_stop)
                 self.stop_flag[i][j] = (value_stop > value_non_stop)
 
@@ -102,7 +106,7 @@ class DiscreteStoppingSolver:
                 color = 'k'
                 marker = 'D'
             else:
-                color = 'r'
+                color = 'c'
                 marker = 'o'
             ax.plot(t, x, marker=marker, color=color, markersize=4)
         plt.grid()
@@ -159,7 +163,7 @@ if __name__ == '__main__':
     config = DiscreteStoppingConfig()
 
     model.driver = log_normal_driver
-    model.terminal_cost = put_payoff_getter(100, 0.001)
+    model.terminal_reward = put_payoff_getter(100, 0.001)
 
     config.time_num_grids = 40
     config.time_upper_bound = 100
