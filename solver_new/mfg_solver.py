@@ -17,8 +17,7 @@ logger.setLevel(logging.INFO)
 
 
 class MFSGSolver:
-    def __init__(self, bond_model, major_stopping_dist, minor_stopping_dist, num_mc=5000, num_grids=400,
-                 num_max_iter=25, precision=0.05):
+    def __init__(self, bond_model, major_stopping_dist, minor_stopping_dist, num_mc=5000, num_grids=400, num_max_iter=25, precision=0.05):
         self.minor_model = None
         self.major_model = None
 

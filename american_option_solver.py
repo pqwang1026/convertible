@@ -1,6 +1,36 @@
 from solver.discrete_stopping_solver import *
 
 
+class AmericanOptionModel(DiscreteStoppingModel):
+    def __init__(self, div_times, div_amount, r, sigma, strike):
+        super().__init__()
+        self.div_times = div_times
+        self.div_amount = div_amount
+        self.r = r
+        self.sigma = sigma
+        self.strike = strike
+
+    @property
+    def div_time_discrete(self):
+        return [int(div_time / self.dt) * self.dt for div_time in self.div_times]
+
+    @property
+    def driver(self):
+        def fn(t, x, noise):
+            if t in self.div_time_discrete:
+                x -= self.div_amount
+            return x * (1 + self.r * self.dt + self.sigma * np.sqrt(self.dt) * noise)
+
+        return fn
+
+    @property
+    def terminal_reward(self):
+        def fn(t, x):
+            return np.exp(-r * t) * max(self.strike - x, 0)
+
+        return fn
+
+
 def put_payoff(t, x, strike, r):
     return np.exp(-r * t) * max(strike - x, 0)
 
@@ -25,39 +55,29 @@ def call_payoff_getter(strike, r):
 
 if __name__ == '__main__':
     model = DiscreteStoppingModel()
-    config = DiscreteStoppingConfig()
 
-    strike = 100
+    # div_times = [0.3, 0.6, 0.9]
+    div_times = []
+    div_amount = 1
     r = 0.01
-    T = 1
-    sigma = 0.2
-    div_times = [0.3, 0.6, 0.9]
-    div_amount = 10
+    sigma = 0.8
+    strike = 100
 
-    config.time_num_grids = 50
-    config.time_upper_bound = T
-    config.time_lower_bound = 0
+    model = AmericanOptionModel(div_times=div_times, div_amount=div_amount, r=r, sigma=sigma, strike=strike)
 
-    config.state_num_grids = 50
-    config.state_upper_bound = 200
-    config.state_lower_bound = 50
+    model.time_num_grids = 50
+    model.time_upper_bound = 1
+    model.time_lower_bound = 0
 
-    dt = T / config.time_num_grids
-    div_time_discrete = [int(div_time / dt) * dt for div_time in div_times]
+    model.state_num_grids = 50
+    model.state_upper_bound = 200
+    model.state_lower_bound = 50
 
-
-    def driver(t, x, noise):
-        if t in div_time_discrete:
-            x -= div_amount
-        return x * (1 + r * dt + sigma * np.sqrt(dt) * noise)
-
-
-    model.driver = driver
-    model.terminal_reward = put_payoff_getter(100, 0.001)
-    # model.terminal_reward = call_payoff_getter(100, 0.001)
-
-    solver = DiscreteStoppingSolver(model, config)
+    solver = DiscreteStoppingSolver(model)
 
     solver.solve()
     solver.plot_value_surface()
+    stopping_distribution = solver.estimate_stopping_distribution(initial_value=100, num_samples=5000)
+    stopping_distribution.plot_cdf()
+    stopping_distribution.plot_histogram()
     solver.plot_stop_flag()

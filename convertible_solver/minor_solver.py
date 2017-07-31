@@ -2,6 +2,7 @@ from solver.discrete_stopping_solver import *
 import pprint
 import utils.perf as perf
 import logging
+import utils.distribution
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,16 @@ for handler in handlers:
 logger.setLevel(logging.INFO)
 
 
-class MinorStoppingModel:
+class MinorStoppingModel(DiscreteStoppingModel):
     def __init__(self):
-        self.r = np.nan
-        self.c = np.nan
-        self.tau_0 = np.nan
-        self.T = np.nan
+        super().__init__()
+        self.r = np.nan  # interest rate
+        self.c = np.nan  # coupon rate
+
+        self.tau_0 = np.nan  # major player's stpping time
+        self.major_stopping_dist = None
+
+        self.T = np.nan  # terminal time
 
         self.e = np.nan  # conversion ratio
         self.p = np.nan  # par value per bond
@@ -32,9 +37,9 @@ class MinorStoppingModel:
         self.k = np.nan  # call premium multiplier
         self.d = np.nan  # dividend per share
 
-        self.v_0 = np.nan
-        self.sigma = np.nan
-        self.nu = np.nan
+        self.v_0 = np.nan  # initial firm total asset value
+        self.sigma = np.nan  # volatility of subjective growth rate
+        self.nu = np.nan  # drift of growth rate
 
         self.I = None  # cumulative distribution, must support __getitem__
 
@@ -61,35 +66,40 @@ class MinorStoppingModel:
         """
 
         def fn(t, x, noise):
-            return x + (self.nu + self.sigma * noise) * x - self.c * self.p * self.N / self.M * (1 - self.I(t)) - self.d * (1 + self.e * self.N / self.M * self.I(t))
+            return x + (self.nu + self.sigma * np.sqrt(self.dt) * noise) * x - self.c * self.p * self.N / self.M * (1 - self.I(t)) - self.d * (1 + self.e * self.N / self.M * self.I(t))
 
         return fn
 
     @property
     def running_reward(self):
         def fn(t, x):
-            return np.power((1 + self.r), -t) * self.c * (t <= (self.tau_0))
+            # return np.power((1 + self.r), -t) * self.c * (t <= (self.tau_0))
+            return np.power((1 + self.r), -t) * self.c * (1 - self.major_stopping_dist(t - self.time_increment))
 
         return fn
 
     @property
     def terminal_reward_call(self):
         def fn(t, x):
-            return np.power((1 + self.r), -self.tau_0) * self.k * (t > self.tau_0) * (self.tau_0 <= self.T)
+            # return np.power((1 + self.r), -self.tau_0) * self.k * (t > self.tau_0) * (self.tau_0 < self.T)
+            return np.power((1 + self.r), -self.tau_0) * self.k * self.major_stopping_dist(min(t - self.time_increment, self.T - self.time_increment))
 
         return fn
 
     @property
     def terminal_reward_par(self):
         def fn(t, x):
-            return np.power((1 + self.r), -self.T) * (t == (self.T + 1)) * (self.tau_0 == (self.T + 1))
+            # return np.power((1 + self.r), -self.T) * (t == (self.T)) * (self.tau_0 == (self.T))
+            return np.power((1 + self.r), -self.T) * (t == (self.T)) * self.major_stopping_dist.pdf_eval(self.T)
 
         return fn
 
     @property
     def terminal_reward_conversion(self):
         def fn(t, x):
-            return np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.tau_0 and t <= self.T)
+            # return np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.tau_0 and t <= self.T)
+            return np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.T) * (
+                1 - self.major_stopping_dist(t - self.time_increment))
 
         return fn
 
@@ -100,57 +110,50 @@ class MinorStoppingModel:
 
         return fn
 
-    def get_model(self):
-        model = DiscreteStoppingModel()
-        model.driver = self.driver
-        model.running_reward = self.running_reward
-        model.terminal_reward = self.terminal_reward
-        return model
-
 
 if __name__ == '__main__':
     import utils.distribution
 
-    minor_model = MinorStoppingModel()
+    model = MinorStoppingModel()
 
-    minor_model.r = 0.01
-    minor_model.c = 0.02
-    minor_model.tau_0 = 7
-    minor_model.T = 10
+    model.r = 0.01
+    model.c = 0.1
 
+    # model.major_stopping_dist = utils.distribution.SampleDistribution(data=[9])
 
-    def cdf(t):
-        return min(t, minor_model.T) / minor_model.T
+    model.T = 10
 
+    model.e = 10
+    model.p = 1000
+    model.M = 1e6
+    model.N = 1e4
+    model.k = 1.2
+    model.d = 1
+    model.nu = 0
+    model.sigma = 0.4
 
-    minor_model.e = 10
-    minor_model.p = 1000
-    minor_model.M = 1e6
-    minor_model.N = 1e4
-    minor_model.k = 1.2
-    minor_model.d = 1
-    minor_model.nu = 0
-    minor_model.sigma = 1
+    model.v_0 = 100
 
-    minor_model.v_0 = 100
+    model.print_scale_summary()
 
-    minor_model.I = cdf
+    model.time_num_grids = 50
+    model.time_upper_bound = model.T
+    model.time_lower_bound = 0
 
-    minor_model.print_scale_summary()
+    model.state_num_grids = 50
+    model.state_upper_bound = model.v_0 * 2
+    model.state_lower_bound = model.v_0 / 2
 
-    stopping_model = minor_model.get_model()
+    model.major_stopping_dist = utils.distribution.Distribution([i * model.T / model.time_num_grids for i in range(1, model.time_num_grids + 1)],
+                                                                [1 / model.time_num_grids for _ in range(1, model.time_num_grids + 1)])
+    model.I = model.major_stopping_dist
 
-    config = DiscreteStoppingConfig()
-    config.time_num_grids = 100
-    config.time_upper_bound = minor_model.T
-    config.time_lower_bound = 0
-
-    config.state_num_grids = 100
-    config.state_upper_bound = minor_model.v_0 * 2
-    config.state_lower_bound = minor_model.v_0 / 2
-
-    solver = DiscreteStoppingSolver(stopping_model, config)
+    solver = DiscreteStoppingSolver(model)
 
     solver.solve()
     solver.plot_value_surface()
+
+    stopping_distribution = solver.estimate_stopping_distribution(initial_value=model.v_0, num_samples=5000)
+    stopping_distribution.plot_cdf()
+
     solver.plot_stop_flag()

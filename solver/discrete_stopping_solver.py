@@ -3,18 +3,12 @@ import pandas as pd
 import utils.perf as perf
 import matplotlib.pyplot as plt
 import logging
+import utils.distribution
 
 logger = logging.getLogger(__name__)
 
 
 class DiscreteStoppingModel:
-    def __init__(self):
-        self.driver = None
-        self.terminal_reward = None
-        self.running_reward = lambda t, x: 0
-
-
-class DiscreteStoppingConfig:
     def __init__(self):
         self.time_num_grids = None
         self.time_lower_bound = None
@@ -24,23 +18,72 @@ class DiscreteStoppingConfig:
         self.state_lower_bound = None
         self.state_num_grids = None
 
+    @property
+    def time_increment(self):
+        return (self.time_upper_bound - self.time_lower_bound) / self.time_num_grids
+
+    @property
+    def dt(self):
+        return self.time_increment
+
+    @property
+    def driver(self):
+        return lambda t, x, noise: 0
+
+    @property
+    def terminal_reward(self):
+        return lambda t, x: 0
+
+    @property
+    def running_reward(self):
+        return lambda t, x: 0
+
 
 class DiscreteStoppingSolver:
-    def __init__(self, model, config):
-        self.driver = model.driver  # driver is a function of (t,x,noise)
-        self.running_reward = model.running_reward  # running cost is a function of (t,x)
-        self.terminal_reward = model.terminal_reward  # terminal cost is a function of (t,x)
-
-        self.time_num_grids = config.time_num_grids
-        self.time_lower_bound = config.time_lower_bound
-        self.time_upper_bound = config.time_upper_bound
-
-        self.state_upper_bound = config.state_upper_bound
-        self.state_lower_bound = config.state_lower_bound
-        self.state_num_grids = config.state_num_grids
+    def __init__(self, model):
+        self.model = model
+        self.config = model
 
         self.value = np.zeros(shape=(self.N + 1, self.M + 1)) * np.nan
         self.stop_flag = np.zeros(shape=(self.N + 1, self.M + 1))
+
+        self.stopping_dist = None
+
+    @property
+    def driver(self):
+        return self.model.driver
+
+    @property
+    def terminal_reward(self):
+        return self.model.terminal_reward
+
+    @property
+    def running_reward(self):
+        return self.model.running_reward
+
+    @property
+    def time_num_grids(self):
+        return self.config.time_num_grids
+
+    @property
+    def time_lower_bound(self):
+        return self.config.time_lower_bound
+
+    @property
+    def time_upper_bound(self):
+        return self.config.time_upper_bound
+
+    @property
+    def state_num_grids(self):
+        return self.config.state_num_grids
+
+    @property
+    def state_lower_bound(self):
+        return self.config.state_lower_bound
+
+    @property
+    def state_upper_bound(self):
+        return self.config.state_upper_bound
 
     @property
     def N(self):
@@ -61,6 +104,22 @@ class DiscreteStoppingSolver:
     def state_from_iloc(self, j):
         return self.state_lower_bound + self.state_increment * j
 
+    def state_to_iloc(self, x):
+        j = int(round((x - self.state_lower_bound) / self.state_increment))
+        if j > self.state_num_grids:
+            j = self.state_num_grids
+        if j < 0:
+            j = 0
+        return j
+
+    def time_to_iloc(self, t):
+        j = int(round((t - self.time_lower_bound) / self.time_increment))
+        if j > self.time_num_grids:
+            j = self.time_num_grids
+        if j < 0:
+            j = 0
+        return j
+
     def time_from_iloc(self, i):
         return self.time_lower_bound + self.time_increment * i
 
@@ -76,25 +135,46 @@ class DiscreteStoppingSolver:
 
     def solve(self):
         for j in range(0, self.M + 1):
-            self.value[self.N][j] = self.terminal_reward(self.time_from_iloc(self.N), self.state_from_iloc(j))
-            self.stop_flag[self.N][j] = False
+            self.value[self.N][j] = self.model.terminal_reward(self.time_from_iloc(self.N), self.state_from_iloc(j))
+            self.stop_flag[self.N][j] = True
 
         for i in reversed(range(0, self.N)):
             for j in range(0, self.M + 1):
                 t = self.time_from_iloc(i)
                 x = self.state_from_iloc(j)
-                x_up = self.driver(t, x, 1)
-                x_dn = self.driver(t, x, -1)
+                x_up = self.model.driver(t, x, 1)
+                x_dn = self.model.driver(t, x, -1)
 
                 value_up = np.interp(x_up, [self.state_from_iloc(k) for k in range(0, self.M + 1)], self.value[i + 1], )
                 value_dn = np.interp(x_dn, [self.state_from_iloc(k) for k in range(0, self.M + 1)], self.value[i + 1], )
-                value_running = self.running_reward(t, x)
+                value_running = self.model.running_reward(t, x)
 
                 value_stop = self.terminal_reward(t, x)
                 value_non_stop = (value_up + value_dn) / 2 + value_running
 
                 self.value[i][j] = max(value_stop, value_non_stop)
                 self.stop_flag[i][j] = (value_stop > value_non_stop)
+
+    @perf.timed
+    def estimate_stopping_distribution(self, initial_value, num_samples=1000):
+        if initial_value > self.state_upper_bound or initial_value < self.state_lower_bound:
+            logger.error('Initial value out of bound!')
+            raise RuntimeError
+        data = []
+        for _ in range(num_samples):
+            i = 0
+            j = self.state_to_iloc(initial_value)
+            while not self.stop_flag[i][j]:
+                t = self.time_from_iloc(i)
+                x = self.state_from_iloc(j)
+                noise = np.random.binomial(1, 0.5) * 2 - 1
+
+                x_next = self.model.driver(t, x, noise)
+
+                i += 1
+                j = self.state_to_iloc(x_next)
+            data.append(self.time_from_iloc(i))
+        return utils.distribution.SampleDistribution(data)
 
     def plot_stop_flag(self):
         grid_map = self.get_grid_map()
@@ -159,22 +239,4 @@ def log_normal_driver(t, x, noise):
 
 
 if __name__ == '__main__':
-    model = DiscreteStoppingModel()
-    config = DiscreteStoppingConfig()
-
-    model.driver = log_normal_driver
-    model.terminal_reward = put_payoff_getter(100, 0.001)
-
-    config.time_num_grids = 40
-    config.time_upper_bound = 100
-    config.time_lower_bound = 0
-
-    config.state_num_grids = 60
-    config.state_upper_bound = 200
-    config.state_lower_bound = 50
-
-    solver = DiscreteStoppingSolver(model, config)
-
-    solver.solve()
-    solver.plot_value_surface()
-    solver.plot_stop_flag()
+    pass

@@ -10,7 +10,7 @@ class EmpiricalDistribution:
         self.data.sort()
         self.data_size = len(data)
 
-    def distplot(self, **kwargs):
+    def plot_histogram(self, **kwargs):
         sns.distplot(self.data, **kwargs)
 
     def get_sample_pdf_series(self):
@@ -79,15 +79,63 @@ class DiscreteDistribution:
         return self.pdf[x]
 
 
+class Distribution:
+    def __init__(self, nodes, probabilities):
+        assert len(set(nodes)) == len(nodes)
+        self.pdf = pd.Series(probabilities, nodes)
+        self.pdf.sort_index(inplace=True)
+
+        self.cdf = self.pdf.cumsum()
+        self.cdf.sort_index(inplace=True)
+        self.cdf[self.cdf.index[0] - 1e-5] = 0
+        self.cdf.sort_index(inplace=True)
+
+        assert ((sum(self.pdf) - 1) < 1e-5)
+
+    def pdf_eval(self, x):
+        if x in self.pdf.index:
+            return self.pdf[x]
+        else:
+            return 0
+
+    def cdf_eval(self, x):
+        return np.interp(x, self.cdf.index, self.cdf.values)
+
+    def plot_cdf(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        cdf = self.cdf
+        ax.step(cdf.index, cdf.data, where='post', marker='o', markersize=5)
+
+    def __call__(self, x):
+        """
+        The call method is designed to access the cdf of the distribution.
+        """
+        return self.cdf_eval(x)
+
+
+class SampleDistribution(Distribution):
+    def __init__(self, data):
+        counter = dict()
+        for datum in data:
+            if datum not in counter:
+                counter[datum] = 1
+            else:
+                counter[datum] += 1
+
+        data_uniq = list(set(data))
+        data_uniq.sort()
+        counter_list = []
+        for datum in data_uniq:
+            counter_list.append(counter[datum])
+
+        pdf = pd.Series(data=counter_list, index=data_uniq) / len(data)
+        super().__init__(list(pdf.index), list(pdf.values))
+
+
 if __name__ == '__main__':
-    obj = EmpiricalDistribution([1, 2, 12, 23])
-    print(obj.get_sample_pdf_series())
-    print(obj.get_sample_cdf_series())
-
-    cdf = obj.get_sample_cdf_fn()
-
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    ax.step(obj.get_sample_cdf_series().index, obj.get_sample_cdf_series().data, where='post')
-
+    data = [9]
+    dist = SampleDistribution(data)
+    dist.plot_cdf()
     plt.show()
+    pass
