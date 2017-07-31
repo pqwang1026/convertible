@@ -113,6 +113,15 @@ class Distribution:
         """
         return self.cdf_eval(x)
 
+    def __rmul__(self, f):
+        """
+        This is the integral of f with respect to this distribution.
+        """
+        sum = 0
+        for node, probability in self.pdf.iteritems():
+            sum += f(node) * probability
+        return sum
+
 
 class SampleDistribution(Distribution):
     def __init__(self, data):

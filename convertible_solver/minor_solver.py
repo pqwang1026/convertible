@@ -66,7 +66,8 @@ class MinorStoppingModel(DiscreteStoppingModel):
         """
 
         def fn(t, x, noise):
-            return x + (self.nu + self.sigma * np.sqrt(self.dt) * noise) * x - self.c * self.p * self.N / self.M * (1 - self.I(t)) - self.d * (1 + self.e * self.N / self.M * self.I(t))
+            res = x + (self.nu + self.sigma * np.sqrt(self.dt) * noise) * x - self.c * self.p * self.N / self.M * (1 - self.I(t)) - self.d * (1 + self.e * self.N / self.M * self.I(t))
+            return res
 
         return fn
 
@@ -82,7 +83,11 @@ class MinorStoppingModel(DiscreteStoppingModel):
     def terminal_reward_call(self):
         def fn(t, x):
             # return np.power((1 + self.r), -self.tau_0) * self.k * (t > self.tau_0) * (self.tau_0 < self.T)
-            return np.power((1 + self.r), -self.tau_0) * self.k * self.major_stopping_dist(min(t - self.time_increment, self.T - self.time_increment))
+            def discount(s):
+                return np.power((1 + self.r), -s) * (s < min(t, self.T))
+
+            res = self.k * (discount * self.major_stopping_dist)
+            return res
 
         return fn
 
@@ -90,7 +95,8 @@ class MinorStoppingModel(DiscreteStoppingModel):
     def terminal_reward_par(self):
         def fn(t, x):
             # return np.power((1 + self.r), -self.T) * (t == (self.T)) * (self.tau_0 == (self.T))
-            return np.power((1 + self.r), -self.T) * (t == (self.T)) * self.major_stopping_dist.pdf_eval(self.T)
+            res = np.power((1 + self.r), -self.T) * (t == (self.T)) * self.major_stopping_dist.pdf_eval(self.T)
+            return res
 
         return fn
 
@@ -98,8 +104,9 @@ class MinorStoppingModel(DiscreteStoppingModel):
     def terminal_reward_conversion(self):
         def fn(t, x):
             # return np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.tau_0 and t <= self.T)
-            return np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.T) * (
+            res = np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.T) * (
                 1 - self.major_stopping_dist(t - self.time_increment))
+            return res
 
         return fn
 
@@ -146,6 +153,7 @@ if __name__ == '__main__':
 
     model.major_stopping_dist = utils.distribution.Distribution([i * model.T / model.time_num_grids for i in range(1, model.time_num_grids + 1)],
                                                                 [1 / model.time_num_grids for _ in range(1, model.time_num_grids + 1)])
+    # model.major_stopping_dist = utils.distribution.SampleDistribution(data=[9])
     model.I = model.major_stopping_dist
 
     solver = DiscreteStoppingSolver(model)

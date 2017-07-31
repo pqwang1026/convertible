@@ -174,7 +174,11 @@ class DiscreteStoppingSolver:
                 i += 1
                 j = self.state_to_iloc(x_next)
             data.append(self.time_from_iloc(i))
-        return utils.distribution.SampleDistribution(data)
+        res = utils.distribution.SampleDistribution(data)
+        standard_nodes = [self.time_from_iloc(i) for i in range(0, self.time_num_grids + 1)]
+        standard_prob = [res.pdf.get(node, 0) for node in standard_nodes]
+        standard_res = utils.distribution.Distribution(standard_nodes, standard_prob)
+        return standard_res
 
     def plot_stop_flag(self):
         grid_map = self.get_grid_map()

@@ -23,7 +23,6 @@ class MajorStoppingModel(DiscreteStoppingModel):
         super().__init__()
         self.r = np.nan  # interest rate
         self.c = np.nan  # coupon rate
-        self.tau_0 = np.nan  # major player's stpping time
         self.T = np.nan  # terminal time
 
         self.e = np.nan  # conversion ratio
@@ -107,7 +106,6 @@ if __name__ == '__main__':
 
     model.r = 0.01
     model.c = 0.02
-    model.tau_0 = 7
     model.T = 10
 
 

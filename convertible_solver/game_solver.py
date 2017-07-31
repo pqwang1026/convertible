@@ -22,10 +22,9 @@ logger.setLevel(logging.INFO)
 class CCBModel:
     def __init__(self):
         self.r = 0.01
-        self.c = 0.1
-        self.tau_0 = 9
+        self.c = 0.01
 
-        self.T = 10
+        self.T = 15
 
         self.e = 10
         self.p = 1000
@@ -44,10 +43,12 @@ class CCBModel:
         self.state_num_grids = 50
 
     def get_initial_major_stopping_dist(self):
-        return utils.distribution.Distribution([i * self.T / self.time_num_grids for i in range(1, self.time_num_grids + 1)], [1 / self.time_num_grids for _ in range(1, self.time_num_grids + 1)])
+        return utils.distribution.Distribution([i * self.T / self.time_num_grids for i in range(0, self.time_num_grids + 1)],
+                                               [1 / (self.time_num_grids + 1) for _ in range(0, self.time_num_grids + 1)])
 
     def get_initial_minor_stopping_dist(self):
-        return utils.distribution.Distribution([i * self.T / self.time_num_grids for i in range(1, self.time_num_grids + 1)], [1 / self.time_num_grids for _ in range(1, self.time_num_grids + 1)])
+        return utils.distribution.Distribution([i * self.T / self.time_num_grids for i in range(0, self.time_num_grids + 1)],
+                                               [1 / (self.time_num_grids + 1) for _ in range(0, self.time_num_grids + 1)])
 
     def get_minor_model(self, major_stopping_dist, minor_stopping_dist):
         model = MinorStoppingModel()
@@ -153,10 +154,12 @@ class GameSolver:
         self.major_stopping_dist = self.major_solver.estimate_stopping_distribution(self.bond_model.R_0, num_samples=int(1e3))
 
         self.num_iter = self.num_iter + 1
-        self.error = np.linalg.norm(self.major_stopping_dist.pdf - self.major_stopping_dist_prev.pdf) + \
-                     np.linalg.norm(self.minor_stopping_dist.pdf - self.minor_stopping_dist_prev.pdf)
+        self.error = np.linalg.norm(self.major_stopping_dist.pdf.values - self.major_stopping_dist_prev.pdf.values) + \
+                     np.linalg.norm(self.minor_stopping_dist.pdf.values - self.minor_stopping_dist_prev.pdf.values)
 
         self.logger.info('Error = {0}'.format(self.error))
+
+        self.plot_incremental_comparison()
 
         if self.num_iter == self.num_max_iter or self.error <= self.precision:
             self.continue_flag = 0
@@ -198,11 +201,8 @@ class GameSolver:
         return logger
 
     def solve(self):
-        error = 10000.0
-        num_iterations = 0
         while self.continue_flag == 1:
             self.update()
-            break
 
 
 if __name__ == '__main__':
