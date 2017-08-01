@@ -8,6 +8,11 @@ import utils.distribution
 logger = logging.getLogger(__name__)
 
 
+class StoppingOptimizeType:
+    MAXIMIZE = 'MAXIMIZE'
+    MINIMIZE = 'MINIMIZE'
+
+
 class DiscreteStoppingModel:
     def __init__(self):
         self.time_num_grids = None
@@ -17,6 +22,8 @@ class DiscreteStoppingModel:
         self.state_upper_bound = None
         self.state_lower_bound = None
         self.state_num_grids = None
+
+        self.optimize_type = StoppingOptimizeType.MAXIMIZE
 
     @property
     def time_increment(self):
@@ -48,6 +55,10 @@ class DiscreteStoppingSolver:
         self.stop_flag = np.zeros(shape=(self.N + 1, self.M + 1))
 
         self.stopping_dist = None
+
+    @property
+    def optimize_type(self):
+        return self.model.optimize_type
 
     @property
     def driver(self):
@@ -134,6 +145,7 @@ class DiscreteStoppingSolver:
         return map
 
     def solve(self):
+        logger.info('Start solving, mode = {0}.'.format(self.optimize_type))
         for j in range(0, self.M + 1):
             self.value[self.N][j] = self.model.terminal_reward(self.time_from_iloc(self.N), self.state_from_iloc(j))
             self.stop_flag[self.N][j] = True
@@ -152,8 +164,14 @@ class DiscreteStoppingSolver:
                 value_stop = self.terminal_reward(t, x)
                 value_non_stop = (value_up + value_dn) / 2 + value_running
 
-                self.value[i][j] = max(value_stop, value_non_stop)
-                self.stop_flag[i][j] = (value_stop > value_non_stop)
+                if self.optimize_type == StoppingOptimizeType.MAXIMIZE:
+                    self.value[i][j] = max(value_stop, value_non_stop)
+                    self.stop_flag[i][j] = (value_stop > value_non_stop)
+                elif self.optimize_type == StoppingOptimizeType.MINIMIZE:
+                    self.value[i][j] = min(value_stop, value_non_stop)
+                    self.stop_flag[i][j] = (value_stop < value_non_stop)
+                else:
+                    raise NotImplementedError
 
     @perf.timed
     def estimate_stopping_distribution(self, initial_value, num_samples=1000):

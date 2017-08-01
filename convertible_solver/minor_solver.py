@@ -42,6 +42,7 @@ class MinorStoppingModel(DiscreteStoppingModel):
         self.nu = np.nan  # drift of growth rate
 
         self.I = None  # cumulative distribution, must support __getitem__
+        self.optimize_type = StoppingOptimizeType.MAXIMIZE
 
     @property
     def q(self):

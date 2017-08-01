@@ -22,24 +22,24 @@ logger.setLevel(logging.INFO)
 class CCBModel:
     def __init__(self):
         self.r = 0.01
-        self.c = 0.01
+        self.c = 0.02
 
-        self.T = 15
+        self.T = 10
 
         self.e = 10
         self.p = 1000
         self.M = 1e6
         self.N = 1e4
-        self.k = 1.2
-        self.d = 1
+        self.k = 1
+        self.d = 3
         self.nu = 0
-        self.sigma = 0.4
-        self.sigma_R = 0.0005
+        self.sigma = 0.2
+        self.sigma_R = 0.005
 
         self.v_0 = 100
-        self.R_0 = 0.025
+        self.R_0 = 0.04
 
-        self.time_num_grids = 50
+        self.time_num_grids = 40
         self.state_num_grids = 50
 
     def get_initial_major_stopping_dist(self):
@@ -105,7 +105,7 @@ class CCBModel:
         model.time_lower_bound = 0
 
         model.state_num_grids = self.state_num_grids
-        model.state_upper_bound = model.R_0 * 4
+        model.state_upper_bound = model.R_0 * 2
         model.state_lower_bound = 0
 
         return model
@@ -159,7 +159,9 @@ class GameSolver:
 
         self.logger.info('Error = {0}'.format(self.error))
 
-        self.plot_incremental_comparison()
+        # self.plot_incremental_comparison()
+        # self.major_solver.plot_stop_flag()
+        # self.minor_solver.plot_stop_flag()
 
         if self.num_iter == self.num_max_iter or self.error <= self.precision:
             self.continue_flag = 0
@@ -168,6 +170,8 @@ class GameSolver:
             if self.error <= self.precision:
                 self.logger.info('Converge!')
                 self.plot_incremental_comparison()
+                self.major_solver.plot_value_surface()
+                self.minor_solver.plot_value_surface()
 
     def plot_incremental_comparison(self):
         fig = plt.figure()

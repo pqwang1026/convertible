@@ -36,7 +36,8 @@ class MajorStoppingModel(DiscreteStoppingModel):
         self.sigma = np.nan  # volatility of subjective growth rate
         self.nu = np.nan  # drift of growth rate
 
-        self.I = None  # cumulative distribution, must support __getitem__
+        self.I = None  # cumulative distribution, must support __call__
+        self.optimize_type = StoppingOptimizeType.MINIMIZE
 
     @property
     def q(self):
@@ -44,12 +45,11 @@ class MajorStoppingModel(DiscreteStoppingModel):
 
     def print_scale_summary(self):
         summary = {
-            'effective_strike': self.q,
-            'initial_asset_per_share': self.v_0,
-            'initial_debt_per_share': self.p * self.N / self.M,
-            'initial_equity_per_share': self.v_0 - self.p * self.N / self.M
+            'dividend_per_share': self.d,
+            'coupon_rate': self.c,
+            'something': self.d / self.q
         }
-        pprint.pprint(summary)
+        pprint.pprint(summary, width=1)
 
     @property
     def driver(self):
@@ -59,14 +59,14 @@ class MajorStoppingModel(DiscreteStoppingModel):
         """
 
         def fn(t, x, noise):
-            return x + x * self.sigma * np.sqrt(self.dt) * noise
+            return x + self.sigma * np.sqrt(self.dt) * noise
 
         return fn
 
     @property
     def running_reward(self):
         def fn(t, x):
-            return np.power((1 + self.r), -t) * (self.c + (self.d / self.q - self.c) * self.I(t))
+            return self.p * self.N * np.power((1 + self.r), -t) * (self.c + (self.d / self.q - self.c) * self.I(t))
 
         return fn
 
@@ -80,7 +80,7 @@ class MajorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward_par(self):
         def fn(t, x):
-            return (1 - self.I(self.T)) * (t == (self.T))
+            return (1 - self.I(self.T - self.time_increment)) * (t == (self.T))
 
         return fn
 
@@ -117,12 +117,12 @@ if __name__ == '__main__':
     model.p = 1000
     model.M = 1e6
     model.N = 1e4
-    model.k = 1.2
-    model.d = 1
+    model.k = 1
+    model.d = 3
     model.nu = 0
-    model.sigma = 0.0005
+    model.sigma = 0.005
 
-    model.R_0 = 0.023
+    model.R_0 = 0.02
 
     model.I = cdf
 
@@ -137,7 +137,12 @@ if __name__ == '__main__':
     model.state_lower_bound = model.R_0 / 2
 
     solver = DiscreteStoppingSolver(model)
+    model.print_scale_summary()
 
     solver.solve()
+
+    stopping_dist = solver.estimate_stopping_distribution(initial_value=model.R_0, num_samples =1000)
+    stopping_dist.plot_cdf()
+
     solver.plot_value_surface()
     solver.plot_stop_flag()
