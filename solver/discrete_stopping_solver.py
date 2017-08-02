@@ -45,6 +45,9 @@ class DiscreteStoppingModel:
     def running_reward(self):
         return lambda t, x: 0
 
+    def update_bounds(self):
+        pass
+
 
 class DiscreteStoppingSolver:
     def __init__(self, model):
@@ -145,6 +148,8 @@ class DiscreteStoppingSolver:
         return map
 
     def solve(self):
+        self.model.update_bounds()
+        self.config.update_bounds()
         logger.info('Start solving, mode = {0}.'.format(self.optimize_type))
         for j in range(0, self.M + 1):
             self.value[self.N][j] = self.model.terminal_reward(self.time_from_iloc(self.N), self.state_from_iloc(j))
@@ -176,7 +181,7 @@ class DiscreteStoppingSolver:
     @perf.timed
     def estimate_stopping_distribution(self, initial_value, num_samples=1000):
         if initial_value > self.state_upper_bound or initial_value < self.state_lower_bound:
-            logger.error('Initial value out of bound!')
+            logger.error('Initial value out of bound! initial value = {0}, upper bound = {1}, lower bound = {2}.'.format(initial_value, self.state_upper_bound, self.state_lower_bound))
             raise RuntimeError
         data = []
         for _ in range(num_samples):

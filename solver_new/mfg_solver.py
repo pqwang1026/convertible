@@ -71,6 +71,8 @@ class MFSGSolver:
             if self.error <= self.precision:
                 self.logger.info('Converge!')
                 self.plot_incremental_comparison()
+                self.major_solver.plot_stop_region()
+                self.minor_solver.plot_stop_region()
 
     def plot_incremental_comparison(self):
         fig = plt.figure()

@@ -44,6 +44,15 @@ class MinorStoppingModel(DiscreteStoppingModel):
         self.I = None  # cumulative distribution, must support __getitem__
         self.optimize_type = StoppingOptimizeType.MAXIMIZE
 
+    def update_bounds(self):
+        self.time_upper_bound = self.T
+        self.time_lower_bound = 0
+        up_factor = 1 + self.nu * self.time_increment + self.sigma * np.sqrt(self.time_increment)
+        dn_factor = 1 + self.nu * self.time_increment - self.sigma * np.sqrt(self.time_increment)
+        self.state_upper_bound = self.v_0 * np.power(up_factor, self.time_num_grids + 1) * 2
+        self.state_lower_bound = self.v_0 * np.power(dn_factor, self.time_num_grids + 1) / 2
+        logger.info('Updated self-adaptive state upper and lower bounds, upper bound = {0}, lower bound = {1}.'.format(self.state_upper_bound, self.state_lower_bound))
+
     @property
     def q(self):
         return self.p / self.e
@@ -137,20 +146,20 @@ if __name__ == '__main__':
     model.N = 1e4
     model.k = 1.2
     model.d = 1
-    model.nu = 0
-    model.sigma = 0.4
+    model.nu = 0.05
+    model.sigma = 0.2
 
     model.v_0 = 100
 
     model.print_scale_summary()
 
-    model.time_num_grids = 50
-    model.time_upper_bound = model.T
-    model.time_lower_bound = 0
+    model.time_num_grids = 10
+    # model.time_upper_bound = model.T
+    # model.time_lower_bound = 0
 
-    model.state_num_grids = 50
-    model.state_upper_bound = model.v_0 * 2
-    model.state_lower_bound = model.v_0 / 2
+    model.state_num_grids = 500
+    # model.state_upper_bound = model.v_0 * 2
+    # model.state_lower_bound = model.v_0 / 2
 
     model.major_stopping_dist = utils.distribution.Distribution([i * model.T / model.time_num_grids for i in range(1, model.time_num_grids + 1)],
                                                                 [1 / model.time_num_grids for _ in range(1, model.time_num_grids + 1)])

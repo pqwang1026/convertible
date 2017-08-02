@@ -34,10 +34,20 @@ class MajorStoppingModel(DiscreteStoppingModel):
 
         self.R_0 = np.nan  # initial refinancing ratg
         self.sigma = np.nan  # volatility of subjective growth rate
-        self.nu = np.nan  # drift of growth rate
 
         self.I = None  # cumulative distribution, must support __call__
         self.optimize_type = StoppingOptimizeType.MINIMIZE
+        self.normalize = True
+
+    def update_bounds(self):
+        self.time_upper_bound = self.T
+        self.time_lower_bound = 0
+        up_factor = self.sigma * np.sqrt(self.time_increment)
+        dn_factor = self.sigma * np.sqrt(self.time_increment)
+        self.state_upper_bound = self.R_0 + up_factor * (self.time_num_grids + 1)
+        self.state_lower_bound = self.R_0 - dn_factor * (self.time_num_grids + 1)
+
+        logger.info('Updated self-adaptive state upper and lower bounds, upper bound = {0}, lower bound = {1}.'.format(self.state_upper_bound, self.state_lower_bound))
 
     @property
     def q(self):
@@ -66,7 +76,10 @@ class MajorStoppingModel(DiscreteStoppingModel):
     @property
     def running_reward(self):
         def fn(t, x):
-            return self.p * self.N * np.power((1 + self.r), -t) * (self.c + (self.d / self.q - self.c) * self.I(t))
+            res = self.p * np.power((1 + self.r), -t) * (self.c + (self.d / self.q - self.c) * self.I(t))
+            if not self.normalize:
+                res *= self.N
+            return res
 
         return fn
 
@@ -94,7 +107,10 @@ class MajorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward(self):
         def fn(t, x):
-            return self.p * self.N * ((self.terminal_reward_refinance_div)(t, x) + (self.terminal_reward_par)(t, x) + (self.terminal_reward_refinance_par)(t, x))
+            res = self.p * ((self.terminal_reward_refinance_div)(t, x) + (self.terminal_reward_par)(t, x) + (self.terminal_reward_refinance_par)(t, x))
+            if not self.normalize:
+                res *= self.N
+            return res
 
         return fn
 
@@ -118,30 +134,24 @@ if __name__ == '__main__':
     model.M = 1e6
     model.N = 1e4
     model.k = 1
-    model.d = 3
-    model.nu = 0
+    model.d = 5
     model.sigma = 0.005
 
-    model.R_0 = 0.02
+    model.R_0 = 0.03
 
     model.I = cdf
 
     # model.print_scale_summary()
 
-    model.time_num_grids = 50
-    model.time_upper_bound = model.T
-    model.time_lower_bound = 0
-
-    model.state_num_grids = 50
-    model.state_upper_bound = model.R_0 * 2
-    model.state_lower_bound = model.R_0 / 2
+    model.time_num_grids = 10
+    model.state_num_grids = 100
 
     solver = DiscreteStoppingSolver(model)
     model.print_scale_summary()
 
     solver.solve()
 
-    stopping_dist = solver.estimate_stopping_distribution(initial_value=model.R_0, num_samples =1000)
+    stopping_dist = solver.estimate_stopping_distribution(initial_value=model.R_0, num_samples=1000)
     stopping_dist.plot_cdf()
 
     solver.plot_value_surface()
