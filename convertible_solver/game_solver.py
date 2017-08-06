@@ -26,18 +26,18 @@ class CCBModel:
 
         self.T = 10
 
-        self.e = 10
+        self.e = 16
         self.p = 1000
         self.M = 1e6
-        self.N = 1e4
+        self.N = 5e4
         self.k = 1
-        self.d = 3
+        self.d = 5
         self.nu = 0
-        self.sigma = 0.1
-        self.sigma_R = 0.005
+        self.sigma = 0.13
+        self.sigma_R = 0.003
 
         self.v_0 = 100
-        self.R_0 = 0.04
+        self.R_0 = 0.03
 
         self.time_num_grids = 10
         self.state_num_grids = 100
@@ -149,12 +149,16 @@ class GameSolver:
 
         self.logger.info('Error = {0}'.format(self.error))
 
+        # self.plot_incremental_comparison()
+
         if self.num_iter == self.num_max_iter or self.error <= self.precision:
             self.continue_flag = 0
             if self.num_iter == self.num_max_iter:
                 self.logger.info('Warning: Maximum iteration reached...Give up...')
             if self.error <= self.precision:
                 self.logger.info('Converge!')
+                self.plot_major_incremental_comparison()
+                self.plot_minor_incremental_comparison()
                 self.plot_incremental_comparison()
                 self.major_solver.plot_value_surface()
                 self.minor_solver.plot_value_surface()
@@ -178,6 +182,24 @@ class GameSolver:
         ax.set_title('minor')
 
         plt.show()
+
+    def plot_major_incremental_comparison(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        major_cdf = pd.Series(self.major_stopping_dist.cdf)
+        major_cdf_prev = pd.Series(self.major_stopping_dist_prev.cdf)
+        ax.step(major_cdf.index, major_cdf.data, where='post', color='b')
+        ax.step(major_cdf_prev.index, major_cdf_prev.data, where='post', color='r', linestyle='--')
+        ax.set_title('major')
+
+    def plot_minor_incremental_comparison(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        minor_cdf = pd.Series(self.minor_stopping_dist.cdf)
+        minor_cdf_prev = pd.Series(self.minor_stopping_dist_prev.cdf)
+        ax.step(minor_cdf.index, minor_cdf.data, where='post', color='b')
+        ax.step(minor_cdf_prev.index, minor_cdf_prev.data, where='post', color='r', linestyle='--')
+        ax.set_title('minor')
 
     def plot_equilibrium_strats(self):
         self.minor_solver.plot_stop_region()

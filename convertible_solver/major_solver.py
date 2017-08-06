@@ -93,14 +93,14 @@ class MajorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward_par(self):
         def fn(t, x):
-            return (1 - self.I(self.T - self.time_increment)) * (t == (self.T))
+            return np.power(1 + self.r, -self.T) * (1 - self.I(self.T - self.time_increment)) * (t == (self.T))
 
         return fn
 
     @property
     def terminal_reward_refinance_par(self):
         def fn(t, x):
-            return self.k * (1 - self.I(t)) * (t < self.T)
+            return np.power(1 + self.r, -self.T) * self.k * (1 - self.I(t)) * (t < self.T)
 
         return fn
 

@@ -1,14 +1,28 @@
 from solver.discrete_stopping_solver import *
 
 
+class OptionType:
+    CALL = 'CALL'
+    PUT = 'PUT'
+
+
 class AmericanOptionModel(DiscreteStoppingModel):
-    def __init__(self, div_times, div_amount, r, sigma, strike):
+    def __init__(self, spot, r, sigma, strike, T, div_times, div_amount, option_type):
         super().__init__()
+        self.spot = spot
         self.div_times = div_times
         self.div_amount = div_amount
         self.r = r
         self.sigma = sigma
         self.strike = strike
+        self.T = T
+        self.option_type = option_type
+
+    def update_bounds(self):
+        self.state_upper_bound = self.spot * np.exp((self.r - self.sigma * self.sigma / 2) * self.T + self.sigma * 2 * np.sqrt(self.T))
+        self.state_lower_bound = self.spot * np.exp((self.r - self.sigma * self.sigma / 2) * self.T - self.sigma * 2 * np.sqrt(self.T)) - self.div_amount * len(self.div_times)
+        self.time_upper_bound = self.T
+        self.time_lower_bound = 0
 
     @property
     def div_time_discrete(self):
@@ -25,8 +39,14 @@ class AmericanOptionModel(DiscreteStoppingModel):
 
     @property
     def terminal_reward(self):
-        def fn(t, x):
-            return np.exp(-r * t) * max(self.strike - x, 0)
+        if self.option_type == OptionType.PUT:
+            def fn(t, x):
+                return np.exp(-r * t) * max(self.strike - x, 0)
+        elif self.option_type == OptionType.CALL:
+            def fn(t, x):
+                return np.exp(-r * t) * max(x - self.strike, 0)
+        else:
+            raise NotImplementedError
 
         return fn
 
@@ -58,26 +78,23 @@ if __name__ == '__main__':
 
     # div_times = [0.3, 0.6, 0.9]
     div_times = []
-    div_amount = 1
+    div_amount = 2
     r = 0.01
-    sigma = 0.8
+    sigma = 0.2
     strike = 100
+    T = 1
+    spot = 100
+    option_type = OptionType.PUT
 
-    model = AmericanOptionModel(div_times=div_times, div_amount=div_amount, r=r, sigma=sigma, strike=strike)
+    model = AmericanOptionModel(spot=spot, T=T, div_times=div_times, div_amount=div_amount, r=r, sigma=sigma, strike=strike, option_type=option_type)
 
     model.time_num_grids = 50
-    model.time_upper_bound = 1
-    model.time_lower_bound = 0
-
-    model.state_num_grids = 50
-    model.state_upper_bound = 200
-    model.state_lower_bound = 50
+    model.state_num_grids = 100
 
     solver = DiscreteStoppingSolver(model)
 
     solver.solve()
     solver.plot_value_surface()
-    stopping_distribution = solver.estimate_stopping_distribution(initial_value=100, num_samples=5000)
+    stopping_distribution = solver.estimate_stopping_distribution(initial_value=model.spot, num_samples=1000)
     stopping_distribution.plot_cdf()
-    stopping_distribution.plot_histogram()
     solver.plot_stop_flag()

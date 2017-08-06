@@ -49,8 +49,8 @@ class MinorStoppingModel(DiscreteStoppingModel):
         self.time_lower_bound = 0
         up_factor = 1 + self.nu * self.time_increment + self.sigma * np.sqrt(self.time_increment)
         dn_factor = 1 + self.nu * self.time_increment - self.sigma * np.sqrt(self.time_increment)
-        self.state_upper_bound = self.v_0 * np.power(up_factor, self.time_num_grids + 1) * 2
-        self.state_lower_bound = self.v_0 * np.power(dn_factor, self.time_num_grids + 1) / 2
+        self.state_upper_bound = self.v_0 * np.power(up_factor, self.time_num_grids + 1) * 1.3
+        self.state_lower_bound = self.v_0 * np.power(dn_factor, self.time_num_grids + 1) / 1.3
         logger.info('Updated self-adaptive state upper and lower bounds, upper bound = {0}, lower bound = {1}.'.format(self.state_upper_bound, self.state_lower_bound))
 
     @property
