@@ -14,6 +14,16 @@ class StoppingOptimizeType:
 
 
 class DiscreteStoppingModel:
+    """
+    This is a Markovian model. We usually start with a continuous model, dX_t = b(t,X_t)dt + sigma(t,X_t)dW_t, and then discretize it by specifying the time_num_grids.
+    For an example of defining a new model, c.f. american_option_solver.py.
+    A model must implements the following interface:
+    -> driver
+    -> terminal_reward (optional, default 0)
+    -> running_reward (optional, default 0)
+    -> update_bounds. Often times we would like to set time/state upper/lower bounds based on some parameters.
+    """
+
     def __init__(self):
         self.time_num_grids = None
         self.time_lower_bound = None
@@ -35,14 +45,29 @@ class DiscreteStoppingModel:
 
     @property
     def driver(self):
+        """
+        This property should return a function of 3 variables: t, x, and noise.
+        Assume that all the time grids are defined in this model, then dt is defined (as T / num_grids)
+        The driver function dictates that given t, x and a N(0,1) noise, what should be the value at t + dt.
+        For example, for a Wiener process with volatility sigma, the driver should be
+            lambda t x, noise : x + np.sqrt(self.dt) * noise
+        """
         return lambda t, x, noise: 0
 
     @property
     def terminal_reward(self):
+        """
+        This property should return a function of 2 variables: t, x.
+        It corresponds to the value g(tau, X_tau) in the objective function for us to maximize.
+        """
         return lambda t, x: 0
 
     @property
     def running_reward(self):
+        """
+        This property shoudl return a function of 2 variables: t, x.
+        It corresponds to the value \int^tau_0 f(t, X_t)dt in the objective function for us to maximize.
+        """
         return lambda t, x: 0
 
     def update_bounds(self):
@@ -52,7 +77,6 @@ class DiscreteStoppingModel:
 class DiscreteStoppingSolver:
     def __init__(self, model):
         self.model = model
-        self.config = model
 
         self.value = np.zeros(shape=(self.N + 1, self.M + 1)) * np.nan
         self.stop_flag = np.zeros(shape=(self.N + 1, self.M + 1))
@@ -77,27 +101,27 @@ class DiscreteStoppingSolver:
 
     @property
     def time_num_grids(self):
-        return self.config.time_num_grids
+        return self.model.time_num_grids
 
     @property
     def time_lower_bound(self):
-        return self.config.time_lower_bound
+        return self.model.time_lower_bound
 
     @property
     def time_upper_bound(self):
-        return self.config.time_upper_bound
+        return self.model.time_upper_bound
 
     @property
     def state_num_grids(self):
-        return self.config.state_num_grids
+        return self.model.state_num_grids
 
     @property
     def state_lower_bound(self):
-        return self.config.state_lower_bound
+        return self.model.state_lower_bound
 
     @property
     def state_upper_bound(self):
-        return self.config.state_upper_bound
+        return self.model.state_upper_bound
 
     @property
     def N(self):
@@ -149,7 +173,7 @@ class DiscreteStoppingSolver:
 
     def solve(self):
         self.model.update_bounds()
-        self.config.update_bounds()
+        self.model.update_bounds()
         logger.info('Start solving, mode = {0}.'.format(self.optimize_type))
         for j in range(0, self.M + 1):
             self.value[self.N][j] = self.model.terminal_reward(self.time_from_iloc(self.N), self.state_from_iloc(j))
