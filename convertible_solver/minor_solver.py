@@ -84,7 +84,6 @@ class MinorStoppingModel(DiscreteStoppingModel):
     @property
     def running_reward(self):
         def fn(t, x):
-            # return np.power((1 + self.r), -t) * self.c * (t <= (self.tau_0))
             return np.power((1 + self.r), -t) * self.c * (1 - self.major_stopping_dist(t - self.time_increment))
 
         return fn
@@ -92,7 +91,6 @@ class MinorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward_call(self):
         def fn(t, x):
-            # return np.power((1 + self.r), -self.tau_0) * self.k * (t > self.tau_0) * (self.tau_0 < self.T)
             def discount(s):
                 return np.power((1 + self.r), -s) * (s < min(t, self.T))
 
@@ -104,7 +102,6 @@ class MinorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward_par(self):
         def fn(t, x):
-            # return np.power((1 + self.r), -self.T) * (t == (self.T)) * (self.tau_0 == (self.T))
             res = np.power((1 + self.r), -self.T) * (t == (self.T)) * self.major_stopping_dist.pdf_eval(self.T)
             return res
 
@@ -113,7 +110,6 @@ class MinorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward_conversion(self):
         def fn(t, x):
-            # return np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.tau_0 and t <= self.T)
             res = np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.T) * (
                 1 - self.major_stopping_dist(t - self.time_increment))
             return res

@@ -34,7 +34,10 @@ class CCBModel:
         self.d = 5
         self.nu = 0
         self.sigma = 0.13
+
         self.sigma_R = 0.003
+        self.R_lt = 0.03
+        self.theta = 0.1
 
         self.v_0 = 100
         self.R_0 = 0.03
@@ -89,9 +92,11 @@ class CCBModel:
         model.k = self.k
         model.d = self.d
         model.nu = self.nu
-        model.sigma = self.sigma_R
 
+        model.sigma = self.sigma_R
         model.R_0 = self.R_0
+        model.theta = self.theta
+        model.R_lt = self.R_lt
 
         model.I = minor_stopping_dist
 

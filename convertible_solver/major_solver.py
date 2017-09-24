@@ -32,8 +32,10 @@ class MajorStoppingModel(DiscreteStoppingModel):
         self.k = np.nan  # call premium multiplier
         self.d = np.nan  # dividend per share
 
-        self.R_0 = np.nan  # initial refinancing ratg
-        self.sigma = np.nan  # volatility of subjective growth rate
+        self.R_0 = np.nan  # initial refinancing rate
+        self.theta = np.nan  # mean reverting rate of refinancing interest rate
+        self.R_lt = np.nan  # long-term refinancing interest rate
+        self.sigma = np.nan  # volatility of refinancing interest rate
 
         self.I = None  # cumulative distribution, must support __call__
         self.optimize_type = StoppingOptimizeType.MINIMIZE
@@ -65,11 +67,12 @@ class MajorStoppingModel(DiscreteStoppingModel):
     def driver(self):
         """
         This is the dynamics of R, where
-        R_t = R_{t-1} + \sigma \epsilon_t
+        R_t = R_{t-1} + \theta ( R_lt - R_{t-1}) + \sigma \epsilon_t
+        which is a Vascicek-type mean reverting process.
         """
 
         def fn(t, x, noise):
-            return x + self.sigma * np.sqrt(self.dt) * noise
+            return x + self.theta * (self.R_lt - x) * self.dt + self.sigma * np.sqrt(self.dt) * noise
 
         return fn
 
@@ -135,9 +138,11 @@ if __name__ == '__main__':
     model.N = 1e4
     model.k = 1
     model.d = 5
-    model.sigma = 0.005
 
+    model.sigma = 0.005
     model.R_0 = 0.03
+    model.R_lt = 0.03
+    model.theta = 0.1
 
     model.I = cdf
 
