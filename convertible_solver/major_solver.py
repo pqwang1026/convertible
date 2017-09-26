@@ -3,20 +3,6 @@ import pprint
 import utils.perf as perf
 import logging
 
-logger = logging.getLogger(__name__)
-
-stream_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s> %(message)s')
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(stream_formatter)
-stream_handler.setLevel(logging.DEBUG)
-
-handlers = [stream_handler]
-
-for handler in handlers:
-    logger.addHandler(stream_handler)
-
-logger.setLevel(logging.INFO)
-
 
 class MajorStoppingModel(DiscreteStoppingModel):
     def __init__(self):
@@ -44,12 +30,19 @@ class MajorStoppingModel(DiscreteStoppingModel):
     def update_bounds(self):
         self.time_upper_bound = self.T
         self.time_lower_bound = 0
-        up_factor = self.sigma * np.sqrt(self.time_increment)
-        dn_factor = self.sigma * np.sqrt(self.time_increment)
-        self.state_upper_bound = self.R_0 + up_factor * (self.time_num_grids + 1)
-        self.state_lower_bound = self.R_0 - dn_factor * (self.time_num_grids + 1)
 
-        logger.info('Updated self-adaptive state upper and lower bounds, upper bound = {0}, lower bound = {1}.'.format(self.state_upper_bound, self.state_lower_bound))
+        time_nodes = [self.time_lower_bound + self.dt * i for i in range(0, self.time_num_grids)]
+
+        upper_bound = self.R_0
+        lower_bound = self.R_0
+        for t in time_nodes:
+            upper_bound = self.driver(t, upper_bound, 1)
+            lower_bound = self.driver(t, lower_bound, -1)
+
+        self.state_upper_bound = upper_bound + 0.01
+        self.state_lower_bound = lower_bound - 0.01
+
+        logger.debug('Updated self-adaptive state upper and lower bounds, upper bound = {0}, lower bound = {1}.'.format(self.state_upper_bound, self.state_lower_bound))
 
     @property
     def q(self):
@@ -96,7 +89,7 @@ class MajorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward_par(self):
         def fn(t, x):
-            return np.power(1 + self.r, -self.T) * (1 - self.I(self.T - self.time_increment)) * (t == (self.T))
+            return np.power(1 + self.r, -self.T) * (1 - self.I(self.T - self.dt)) * (t == (self.T))
 
         return fn
 
@@ -119,6 +112,19 @@ class MajorStoppingModel(DiscreteStoppingModel):
 
 
 if __name__ == '__main__':
+    logger = logging.getLogger(__name__)
+
+    stream_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s> %(message)s')
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(stream_formatter)
+    stream_handler.setLevel(logging.DEBUG)
+
+    handlers = [stream_handler]
+
+    for handler in handlers:
+        logger.addHandler(stream_handler)
+
+    logger.setLevel(logging.INFO)
     import utils.distribution
 
     model = MajorStoppingModel()
@@ -144,7 +150,8 @@ if __name__ == '__main__':
     model.R_lt = 0.03
     model.theta = 0.1
 
-    model.I = cdf
+    # model.I = cdf
+    model.I = utils.distribution.Distribution([model.T], [1])
 
     # model.print_scale_summary()
 
@@ -161,3 +168,5 @@ if __name__ == '__main__':
 
     solver.plot_value_surface()
     solver.plot_stop_flag()
+
+    plt.show()

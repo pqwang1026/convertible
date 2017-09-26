@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import random
 
 
 class EmpiricalDistribution:
@@ -140,6 +141,13 @@ class SampleDistribution(Distribution):
 
         pdf = pd.Series(data=counter_list, index=data_uniq) / len(data)
         super().__init__(list(pdf.index), list(pdf.values))
+
+
+def generate_simplex_sample(p):
+    nodes = [random.uniform(0, 1) for i in range(0, p)]
+    nodes = sorted(nodes)
+    nodes = [0] + nodes + [1]
+    return np.diff(nodes)
 
 
 if __name__ == '__main__':

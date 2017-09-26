@@ -241,8 +241,7 @@ class DiscreteStoppingSolver:
                 marker = 'o'
             ax.plot(t, x, marker=marker, color=color, markersize=4)
         plt.grid()
-        plt.title('black for stop, red for non-stop.')
-        plt.show()
+        plt.title(type(self.model).__name__ + '(black for stop, green for non-stop.)')
 
     def plot_value_surface(self):
         from mpl_toolkits.mplot3d import Axes3D
@@ -270,8 +269,7 @@ class DiscreteStoppingSolver:
 
         # Add a color bar which maps values to colors.
         fig.colorbar(surf, shrink=0.5, aspect=5)
-
-        plt.show()
+        fig.suptitle(type(self.model).__name__)
 
 
 def put_payoff(t, x, strike, r):

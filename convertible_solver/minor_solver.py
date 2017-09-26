@@ -4,20 +4,6 @@ import utils.perf as perf
 import logging
 import utils.distribution
 
-logger = logging.getLogger(__name__)
-
-stream_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s> %(message)s')
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(stream_formatter)
-stream_handler.setLevel(logging.DEBUG)
-
-handlers = [stream_handler]
-
-for handler in handlers:
-    logger.addHandler(stream_handler)
-
-logger.setLevel(logging.INFO)
-
 
 class MinorStoppingModel(DiscreteStoppingModel):
     def __init__(self):
@@ -41,6 +27,8 @@ class MinorStoppingModel(DiscreteStoppingModel):
         self.sigma = np.nan  # volatility of subjective growth rate
         self.nu = np.nan  # drift of growth rate
 
+        self.lambd = np.nan  # dilution intensity, can range from 0 (no dilution) to 1 (full dilution)
+
         self.I = None  # cumulative distribution, must support __getitem__
         self.optimize_type = StoppingOptimizeType.MAXIMIZE
 
@@ -49,9 +37,9 @@ class MinorStoppingModel(DiscreteStoppingModel):
         self.time_lower_bound = 0
         up_factor = 1 + self.nu * self.time_increment + self.sigma * np.sqrt(self.time_increment)
         dn_factor = 1 + self.nu * self.time_increment - self.sigma * np.sqrt(self.time_increment)
-        self.state_upper_bound = self.v_0 * np.power(up_factor, self.time_num_grids + 1) * 1.3
-        self.state_lower_bound = self.v_0 * np.power(dn_factor, self.time_num_grids + 1) / 1.3
-        logger.info('Updated self-adaptive state upper and lower bounds, upper bound = {0}, lower bound = {1}.'.format(self.state_upper_bound, self.state_lower_bound))
+        self.state_upper_bound = self.v_0 * np.power(up_factor, self.time_num_grids + 1) * 1.1
+        self.state_lower_bound = self.v_0 * np.power(dn_factor, self.time_num_grids + 1) / 1.1
+        logger.debug('Updated self-adaptive state upper and lower bounds, upper bound = {0}, lower bound = {1}.'.format(self.state_upper_bound, self.state_lower_bound))
 
     @property
     def q(self):
@@ -110,8 +98,7 @@ class MinorStoppingModel(DiscreteStoppingModel):
     @property
     def terminal_reward_conversion(self):
         def fn(t, x):
-            res = np.power((1 + self.r), -t) / self.q * (x - self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t <= self.T) * (
-                1 - self.major_stopping_dist(t - self.time_increment))
+            res = np.power((1 + self.r), -t) / self.q * (x - self.lambd * self.p * self.N / self.M * (1 - self.I(t))) * (1 - self.e * self.N / self.M * self.I(t)) * (t < self.T) * (1 - self.major_stopping_dist(t))
             return res
 
         return fn
@@ -125,6 +112,19 @@ class MinorStoppingModel(DiscreteStoppingModel):
 
 
 if __name__ == '__main__':
+    logger = logging.getLogger(__name__)
+
+    stream_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s> %(message)s')
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(stream_formatter)
+    stream_handler.setLevel(logging.DEBUG)
+
+    handlers = [stream_handler]
+
+    for handler in handlers:
+        logger.addHandler(stream_handler)
+
+    logger.setLevel(logging.INFO)
     import utils.distribution
 
     model = MinorStoppingModel()
@@ -142,10 +142,12 @@ if __name__ == '__main__':
     model.N = 1e4
     model.k = 1.2
     model.d = 1
-    model.nu = 0.05
-    model.sigma = 0.2
+    model.nu = 0.01
+    model.sigma = 0.1
 
     model.v_0 = 100
+
+    model.lambd = 1
 
     model.print_scale_summary()
 
@@ -153,13 +155,14 @@ if __name__ == '__main__':
     # model.time_upper_bound = model.T
     # model.time_lower_bound = 0
 
-    model.state_num_grids = 500
+    model.state_num_grids = 100
     # model.state_upper_bound = model.v_0 * 2
     # model.state_lower_bound = model.v_0 / 2
 
-    model.major_stopping_dist = utils.distribution.Distribution([i * model.T / model.time_num_grids for i in range(1, model.time_num_grids + 1)],
-                                                                [1 / model.time_num_grids for _ in range(1, model.time_num_grids + 1)])
+    # model.major_stopping_dist = utils.distribution.Distribution([i * model.T / model.time_num_grids for i in range(1, model.time_num_grids + 1)],
+    #                                                             [1 / model.time_num_grids for _ in range(1, model.time_num_grids + 1)])
     # model.major_stopping_dist = utils.distribution.SampleDistribution(data=[9])
+    model.major_stopping_dist = utils.distribution.Distribution([model.T], [1])
     model.I = model.major_stopping_dist
 
     solver = DiscreteStoppingSolver(model)
@@ -171,3 +174,4 @@ if __name__ == '__main__':
     stopping_distribution.plot_cdf()
 
     solver.plot_stop_flag()
+    plt.show()
