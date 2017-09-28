@@ -123,6 +123,14 @@ class Distribution:
             sum += f(node) * probability
         return sum
 
+    def __add__(self, other):
+        nodes = list(self.pdf.index) + list(other.pdf.index)
+        probabilities = list(self.pdf.values) + list(other.pdf.values)
+        return Distribution(nodes, probabilities)
+
+    def mult(self, a):
+        return Distribution(list(self.pdf.index), list(np.array(self.pdf.values * a)))
+
 
 class SampleDistribution(Distribution):
     def __init__(self, data):
