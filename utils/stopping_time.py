@@ -20,6 +20,14 @@ class StoppingTime(dict):
         for path, time in profile.items():
             self[path] = time
 
+    def __eq__(self, other):
+        for key, value in other.items():
+            if key not in self.keys():
+                return False
+            if self[key] != value:
+                return False
+        return True
+
 
 def get_all_paths(num_steps):
     if num_steps == 1:

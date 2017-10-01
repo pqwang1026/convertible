@@ -124,9 +124,24 @@ class Distribution:
         return sum
 
     def __add__(self, other):
-        nodes = list(self.pdf.index) + list(other.pdf.index)
-        probabilities = list(self.pdf.values) + list(other.pdf.values)
-        return Distribution(nodes, probabilities)
+        new_series = self.pdf.astype(float)
+        for node, prob in other.pdf.iteritems():
+            if node in new_series.index:
+                new_series[node] += prob
+            else:
+                new_series[node] = prob
+
+        return Distribution(list(new_series.index), list(new_series.values))
+
+    def __sub__(self, other):
+        new_series = self.pdf.astype(float)
+        for node, prob in other.pdf.iteritems():
+            if node in new_series.index:
+                new_series[node] -= prob
+            else:
+                new_series[node] = -prob
+
+        return Distribution(list(new_series.index), list(new_series.values))
 
     def mult(self, a):
         return Distribution(list(self.pdf.index), list(np.array(self.pdf.values * a)))
@@ -152,7 +167,7 @@ class SampleDistribution(Distribution):
 
 
 def generate_simplex_sample(p):
-    nodes = [random.uniform(0, 1) for i in range(0, p)]
+    nodes = [random.uniform(0, 1) for i in range(0, p - 1)]
     nodes = sorted(nodes)
     nodes = [0] + nodes + [1]
     return np.diff(nodes)

@@ -90,32 +90,55 @@ def get_stopping_dist_from_st(stopping_time: st.StoppingTime):
     return dist
 
 
-all_st = st.get_all_stopping_times(1)
-empty_profile = [0 for _ in range(0, 2 ** 1)]
-profile = [0, 1]
+num_steps = 3
+all_st = st.get_all_stopping_times(num_steps)
+empty_profile = [0 for _ in range(0, 2 ** num_steps)]
 
-I = utils.distribution.Distribution([0, 1], [0.8, 0.2])
-rate = 1
-while True:
-    solver = SimpleStoppingSolver(1)
+I = utils.distribution.Distribution([i for i in range(0, num_steps + 1)], utils.distribution.generate_simplex_sample(num_steps + 1))
+profile = None
 
-    solver.terminal_payoff = lambda t, x: 1 / 3 * x * x - I(t)
+rate = 0.01
+for _ in range(0, 1000):
+    solver = SimpleStoppingSolver(num_steps=num_steps)
+
+    # solver.terminal_payoff = lambda t, x: 1 / 3 * x * x - I(t)
+
+    # the bank run model
+    r_bar = 0.1
+    r = 0.1
+    L = lambda x: x
+    d = 1
+    sigma = 0.2
+    solver.terminal_payoff = lambda t, x: np.exp((r_bar - r) * t) * min(d, max(L(x * sigma + d) - I(t), 0))
 
     solver.solve()
     optimal_st = solver.get_st()
 
-    target_profile = [0 for _ in range(0, 2 ** 1)]
+    target_profile = [0 for _ in range(0, len(all_st))]
     target_profile[all_st.index(optimal_st)] = 1
 
-    profile = (1 - rate) * np.array(profile) + rate * np.array(target_profile)
+    if profile is None:
+        profile = np.array(target_profile)
+    else:
+        profile = (1 - rate) * np.array(profile) + rate * np.array(target_profile)
 
+    prev_I = I
     I = utils.distribution.Distribution([0], [0])
     for p, stopping_time in zip(profile, all_st):
+        if p == 0:
+            continue
         d = get_stopping_dist_from_st(stopping_time)
         I = I + d.mult(p)
-    I.plot_cdf()
-    print(profile)
 
-    # solver.plot_stop_flag()
-    # I.plot_cdf()
-    # plt.show()
+    change = np.linalg.norm((I - prev_I).pdf.values)
+
+    # rate = min(change, 0.1)
+
+    print(['{:.2f}'.format(x) for x in profile])
+    # print(profile)
+    # print(np.linalg.norm((I - prev_I).pdf.values))
+    # if change < 0.005:
+    #     break
+
+I.plot_cdf()
+plt.show()

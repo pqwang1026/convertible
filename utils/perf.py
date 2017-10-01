@@ -25,7 +25,7 @@ class Timer:
         self._start = None
 
         if self.logger is not None:
-            self.logger.debug('{} elapsed: {:.6f} secs'.format(self._name, round(self._elapsed, 6)))
+            self.logger.info('{} elapsed: {:.6f} secs'.format(self._name, round(self._elapsed, 6)))
 
     def reset(self):
         self._elapsed = 0.0
