@@ -9,8 +9,10 @@ sns.set_style('whitegrid')
 
 class SimplexPoint(list):
     def __init__(self, weights):
+        if not all([w >= -1e-5 for w in weights]):
+            print(weights)
         assert (np.abs(sum(weights) - 1) < 1e-4)
-        assert (all([w >= 0 for w in weights]))
+        assert (all([w >= -1e-5 for w in weights]))
         for weight in weights:
             self.append(weight)
         self.n = len(weights) - 1
@@ -84,14 +86,64 @@ def get_random_simplex_point(n):
     return SimplexPoint(np.diff(nodes))
 
 
+def get_all_permutations(n: int):
+    """
+    Returns all permutations on {0, 1, ..., n-1}.
+    """
+
+    def get_all_permutations_from_list(l: list):
+        """
+        We assume that all the elements in the input are distinct.
+        """
+        if len(l) == 1:
+            return [[l[0]]]
+        res = []
+        for i, e in enumerate(l):
+            res += [p + [e] for p in get_all_permutations_from_list(list(np.delete(l, i)))]
+        return res
+
+    return get_all_permutations_from_list(list(range(0, n)))
+
+
+def get_all_triangulation_vertices(n, k):
+    def get_all_triangulation_ilocs(n, k):
+        if n == 0:
+            return [[k]]
+        res = []
+        for i in range(0, k + 1):
+            prev_vertices = get_all_triangulation_ilocs(n - 1, k - i)
+            res += [t + [i] for t in prev_vertices]
+        return res
+
+    ilocs = get_all_triangulation_ilocs(n, k)
+    res = [SimplexPoint(np.array(l) / k) for l in ilocs]
+    return res
+
+
+def get_all_triangles(n, k):
+    vertices = get_all_triangulation_vertices(n, k)
+    permutations = get_all_permutations(n)
+
+    res = []
+    for v in vertices:
+        for p in permutations:
+            t = Triangle(v, p, k)
+            try:
+                t.get_all_vertices()
+            except:
+                continue
+            res.append(t)
+    return res
+
+
 if __name__ == '__main__':
     import pprint
 
-    sp = SimplexPoint([0.3, 0.2, 0.5])
-    triangle = get_covering_triangle(sp, 13)
-
-    print(triangle.get_all_vertices())
-
+    # sp = SimplexPoint([0.3, 0.2, 0.5])
+    # triangle = get_covering_triangle(sp, 13)
+    #
+    # print(triangle.get_all_vertices())
+    print(len([t.get_all_vertices() for t in get_all_triangles(3, 4)]))
     # A = np.zeros(shape=(3, 3))
     # for i, x in enumerate(X):
     #     A[:, i] = x

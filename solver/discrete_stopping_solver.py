@@ -202,7 +202,6 @@ class DiscreteStoppingSolver:
                 else:
                     raise NotImplementedError
 
-    @perf.timed
     def estimate_stopping_distribution(self, initial_value, num_samples=1000):
         if initial_value > self.state_upper_bound or initial_value < self.state_lower_bound:
             logger.error('Initial value out of bound! initial value = {0}, upper bound = {1}, lower bound = {2}.'.format(initial_value, self.state_upper_bound, self.state_lower_bound))

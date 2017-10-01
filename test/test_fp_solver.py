@@ -22,10 +22,12 @@ def g(s: splx.SimplexPoint):
     return splx.SimplexPoint([s[1], s[2], s[0]])
 
 
-func = g
+func = f
 
-solver = IterataiveSolver(func, n=2)
-print(solver.solve())
+# solver = IterataiveSolver(func, n=2)
+# print(solver.solve())
 
 solver = KakutaniSolver(func, n=2)
-print(solver.solve(k=41))
+# print(solver.solve(k=4))
+
+solver.solve_traversal(k=4)

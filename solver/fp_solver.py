@@ -49,8 +49,8 @@ class KakutaniSolver(FpSolver):
         self.n = n
 
         self.b = None
-        self.b = b = np.array([0.2, 0.3, -0.5] + [0 for _ in range(0, self.n - 2)])
-        self.d = np.array(list(b) + [1])
+        self.b = np.array([0.2, 0.3, -0.5] + [0 for _ in range(0, self.n - 2)])
+        self.d = np.array(list(self.b) + [1])
         self.d.shape = (self.n + 2, 1)
 
         # state of the algorithm
@@ -147,7 +147,7 @@ class KakutaniSolver(FpSolver):
                 if spike >= 0:
                     continue
                 tmp.append(-x0[i] / spike)
-            theta = max(tmp)
+            theta = min(tmp)
             x0 = splx.SimplexPoint(x0 + theta * b)
 
             triangle = splx.get_covering_triangle(x0, k)
@@ -164,7 +164,10 @@ class KakutaniSolver(FpSolver):
 
             for i in [self.n + 1] + list(range(0, self.n + 1)):
                 sub_L_ = np.delete(np.delete(L_, i, axis=1), 0, axis=0)
-                v = np.linalg.solve(sub_L_, m[1:])
+                try:
+                    v = np.linalg.solve(sub_L_, m[1:])
+                except:
+                    continue
                 if all([w >= 0 for w in v]):
                     pivot_idx = i
                     if pivot_idx == self.n + 1:
@@ -210,6 +213,25 @@ class KakutaniSolver(FpSolver):
             self.fixed_point += weight * np.array(triangle_vertices[i])
         self.fixed_point = splx.SimplexPoint(self.fixed_point)
         return self.fixed_point
+
+    def solve_traversal(self, k):
+        all_triangles = splx.get_all_triangles(self.n, k)
+        for triangle in all_triangles:
+            triangle_vertices = triangle.get_all_vertices()
+            L = np.zeros(shape=(self.n + 2, self.n + 1))
+            for i in range(0, self.n + 1):
+                L[:, i] = list(np.array(self.f(splx.SimplexPoint(triangle_vertices[i]))) - np.array(splx.SimplexPoint(triangle_vertices[i]))) + [1]
+            m = np.array([0 for _ in range(0, self.n + 1)] + [1])
+
+            sub_L = np.delete(L, 0, axis=0)
+            v = np.linalg.solve(sub_L, m[1:])
+            if all([c >= 0 for c in v]):
+                self.logger.info('Found a fixed point.')
+                fixed_point = 0
+                for i, weight in enumerate(v):
+                    fixed_point += weight * np.array(triangle_vertices[i])
+                fixed_point = splx.SimplexPoint(fixed_point)
+                print(fixed_point)
 
 
 if __name__ == '__main__':

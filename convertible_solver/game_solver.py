@@ -78,7 +78,7 @@ class CCBModel:
 
     def get_random_initial_dist(self):
         return utils.distribution.Distribution([i * self.T / self.time_num_grids for i in range(0, self.time_num_grids + 1)],
-                                               utils.distribution.generate_simplex_sample(self.time_num_grids))
+                                               utils.distribution.generate_simplex_sample(self.time_num_grids + 1))
 
     def get_initial_minor_stopping_dist(self):
         return utils.distribution.Distribution([i * self.T / self.time_num_grids for i in range(0, self.time_num_grids + 1)],
